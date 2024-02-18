@@ -1,0 +1,7 @@
+package-as: Bisector
+
+enable-nolib-creation: no
+
+ignore:
+  - types.lua
+  - README.md

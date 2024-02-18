@@ -1,0 +1,13 @@
+{
+  "Lua.diagnostics.globals": [
+    "SlashCmdList",
+    "EventUtil",
+    "print",
+    "table",
+    "select",
+    "C_UI",
+    "strsplit",
+    "type",
+    "unpack"
+  ]
+}
