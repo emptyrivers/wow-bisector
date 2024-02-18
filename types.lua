@@ -6,7 +6,6 @@
 ---@field [string] function(...: string[])
 
 ---@class Private
----@field [string] function
 
 ---@class SavedState
 ---@field bisecting boolean

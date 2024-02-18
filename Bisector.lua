@@ -70,8 +70,8 @@ do --CLI COMMANDS
   end
 
   function bisect.start()
-    if bisect.priv.bisecting then
-      print("Bisect: Already bisecting. Use /bisect reset to end this session & return to your normal addons, or /bisect good/bad to continue bisecting.")
+    if bisect.sv.bisecting then
+      bisect.priv.print{"Already bisecting. Use /bisect reset to end this session & return to your normal addons, or /bisect good/bad to continue bisecting."}
       return
     end
     bisect.sv = {
@@ -86,7 +86,7 @@ do --CLI COMMANDS
 
   function bisect.good()
     if not bisect.sv.bisecting then
-      print("Bisect: Not bisecting. Use /bisect start to start a new bisect session.")
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
     table.insert(bisect.sv.steps, {addons = bisect.priv.currentAddons(), good = true})
@@ -96,7 +96,7 @@ do --CLI COMMANDS
   ---@param hints string[]
   function bisect.hint(hints)
     if not bisect.sv.bisecting then
-      print("Bisect: Not bisecting. Use /bisect start to start a new bisect session.")
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
     for i = 1, select("#", hints) do
@@ -108,7 +108,7 @@ do --CLI COMMANDS
       elseif op == "-" then
         bisect.sv.hints[addon] = false
       else
-        print("Bisect: Invalid hint", hint)
+        bisect.priv.print{string.format("Invalid hint %q", hint)}
       end
     end
   end
@@ -116,7 +116,7 @@ do --CLI COMMANDS
   ---@param locks string[]
   function bisect.lock(locks)
     if not bisect.sv.bisecting then
-      print("Bisect: Not bisecting. Use /bisect start to start a new bisect session.")
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
     for i = 1, select("#", locks) do
@@ -128,14 +128,14 @@ do --CLI COMMANDS
       elseif op == "-" then
         bisect.sv.locks[addon] = false
       else
-        print("Bisect: Invalid lock", lock)
+        bisect.priv.print{string.format("Invalid lock %q", lock)}
       end
     end
   end
 
   function bisect.bad()
     if not bisect.sv.bisecting then
-      print("Bisect: Not bisecting. Use /bisect start to start a new bisect session.")
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
     table.insert(bisect.sv.steps, {addons = bisect.priv.currentAddons(), good = false})
@@ -144,7 +144,7 @@ do --CLI COMMANDS
 
   function bisect.reset()
     if not bisect.sv.bisecting then
-      print("Bisect: Not bisecting. Use /bisect start to start a new bisect session.")
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
     bisect.priv.loadAddons(bisect.sv.originalAddons)
@@ -156,12 +156,14 @@ do --CLI COMMANDS
 
   function bisect.status()
     if not bisect.sv.bisecting then
-      print("Bisect: Not bisecting. Use /bisect start to start a new bisect session.")
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    print("Bisect: Status")
-    print("  Current set has", #bisect.priv.currentAddons(), "addons enabled")
-    print("  Bisector expects to take", bisect.priv.expectedSteps(), "steps")
+    bisect.priv.print{
+      "Status",
+      string.format("  Current set has %i addons enabled", #bisect.priv.currentAddons()),
+      string.format("  Bisector expects to take %i steps", bisect.priv.expectedSteps()),
+    }
   end
 
 end
