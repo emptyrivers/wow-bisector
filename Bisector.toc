@@ -1,0 +1,9 @@
+# Bisector is marked with CC0 1.0 Universal. To view a copy of this license, visit http://creativecommons.org/publicdomain/zero/1.0
+## Interface: 100205
+## Title: Bisector
+## Author: rivers
+## Version: 0.1
+## Notes: Find that broken addon!
+## SavedVariables: BisectorSaved
+
+Bisector.lua
