@@ -260,7 +260,7 @@ function bisect.priv.loadNextSet()
   local rope = {}
   for index, addon in ipairs(bisect.sv.queue) do
     bisect.sv.current[addon] = index > bisect.sv.index or index <= bisect.sv.index - bisect.sv.stepSize
-    rope[index] = bisect.sv.current[addon] and "1" or "0"
+    rope[index] = string.format("|cFF%s%s|r", bisect.sv.current[addon] and "00FF00" or "FF0000", addon)
   end
   bisect.priv.print{table.concat(rope, "")}
 end
