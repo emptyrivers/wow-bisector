@@ -1,3 +1,16 @@
 {
-  "runtime.version": "Lua 5.1"
+  "runtime.version": "Lua 5.1",
+    "diagnostics.globals": [
+        "SlashCmdList",
+        "EventUtil",
+        "print",
+        "table",
+        "select",
+        "C_UI",
+        "strsplit",
+        "type",
+        "unpack",
+        "enabled",
+        "ReloadUi"
+    ]
 }

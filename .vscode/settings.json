@@ -8,6 +8,8 @@
     "C_UI",
     "strsplit",
     "type",
-    "unpack"
+    "unpack",
+    "enabled",
+    "ReloadUI"
   ]
 }
