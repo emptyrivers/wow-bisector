@@ -28,86 +28,34 @@ do -- Register CLI
   ---@param input string
   function SlashCmdList.BISECT(input)
     local args = {strsplit(" ", input:lower())}
-    if type(bisect[args[1]]) == "function" then
-      bisect[args[1]](select(2, unpack(args)))
+    if type(bisect.cli[args[1]]) == "function" then
+      bisect.cli[args[1]](select(2, unpack(args)))
     else
-      return bisect.help()
+      return bisect.cli.help()
     end
   end
 end
-
-do -- development functions
-
-  bisect.test = {}
-  function bisect.test.start()
-    return bisect.start(8)
-  end
-
-  bisect.test.reload = C_UI.Reload
-
-  function bisect.test.hint()
-    bisect.hint({"+1", "-2"})
-    bisect.priv.printLoadedSet()
-  end
-
-  function bisect.test.load_superset()
-    for _, addon in ipairs(bisect.sv.queue) do
-      if not bisect.sv.current[addon].enabled and not bisect.sv.test_loaded[addon] then
-        bisect.sv.test_loaded[addon] = true
-        break
-      end
-    end
-    bisect.priv.printLoadedSet()
-  end
-
-  function bisect.test.load_extra()
-    bisect.sv.test_loaded[0] = true
-    bisect.priv.printLoadedSet()
-  end
-
-  function bisect.test.load_subset()
-    for _, addon in ipairs(bisect.sv.queue) do
-      if bisect.sv.current[addon].enabled and bisect.sv.test_loaded[addon] then
-        bisect.sv.test_loaded[addon] = false
-        break
-      end
-    end
-    bisect.priv.printLoadedSet()
-  end
-
-  function bisect.test.load_incomparable()
-    bisect.sv.test_loaded[0] = true
-    for _, addon in ipairs(bisect.sv.queue) do
-      if bisect.sv.current[addon].enabled and bisect.sv.test_loaded[addon] then
-        bisect.sv.test_loaded[addon] = false
-        break
-      end
-    end
-    bisect.priv.printLoadedSet()
-  end
-
-  function bisect.test.reset_and_reload()
-    bisect.reset()
-    bisect.test.reload()
-  end
-end
-
 
 do --cli command functions
 
+  ---@class BisectCommands
+  bisect.cli = {}
+
   ---@param cmd? string
-  function bisect.help(cmd)
+  function bisect.cli.help(cmd)
     if not cmd then
       bisect.priv.print{
         "",
         "  /bisect help <command> - Show this message, or help for a specific command",
         "  /bisect start - Start a new bisect session",
+        "  /bisect hint <+|-|?><addon> - provide 1 or more hints",
         "  /bisect good - Mark the current addon set as good",
         "  /bisect bad - Mark the current addon set as bad",
+        "  /bisect continue - Continue the current bisect session",
         "  /bisect reload - Alias for /reloadui",
-        "  /bisect hint <+|-|?><addon> - provide 1 or more hints",
-        "  /bisect end - End the current bisect session",
-        "  /bisect reset - Restore addons to original state",
+        "  /bisect finish - End the current bisect session",
+        "  /bisect reset - Stop bisecting and restore your addons to their original state",
+        "  /bisect restore init|bad - Restore your addons to their original state, or to the last bad set",
         "  /bisect status - Show the current bisect session status",
         "  /bisect print - Print the bisect results",
       }
@@ -116,10 +64,21 @@ do --cli command functions
         "start",
         "Start a new bisect session. Your current addon set will be stored, and Bisector will begin to disable addons to find the cause of your issue."
       }
+    elseif cmd == "hint" then
+      bisect.priv.print{
+        "hint +|-|?<addon> ...",
+        "Provide a hint to Bisector. If you suspect that a specific addon is or isn't needed to reproduce the issue, you can tell Bisector to include or exclude it from the next set.",
+        "More than one hint can be provided at once by separating them with spaces (e.g. /bisect hint +addon1 -addon2).",
+      }
     elseif cmd == "good" then
       bisect.priv.print{
         "good",
         "Mark the current addon set as good (i.e. the issue is not present). Bisector will select another addon set to test, and reload your UI.",
+      }
+    elseif cmd == "bad" then
+      bisect.priv.print{
+        "bad",
+        "Mark the current addon set as bad (i.e. the issue is present). Bisector will select another addon set to test, and reload your UI.",
       }
     elseif cmd == "continue" then
       bisect.priv.print{
@@ -127,22 +86,27 @@ do --cli command functions
         "Continue the current bisect session. Bisector will select another addon set to test, and reload your UI.",
         "Note: Bisector is modeled after git bisect, where the equivalent command would be 'git bisect skip', but in this application that operation reduces to 'good'."
       }
-    elseif cmd == "bad" then
+    elseif cmd == "reload" then
       bisect.priv.print{
-        "bad",
-        "Mark the current addon set as bad (i.e. the issue is present). Bisector will select another addon set to test, and reload your UI.",
+        "reload",
+        "Alias for /reloadui."
       }
-    elseif cmd == "hint" then
-      bisect.priv.print{
-        "hint +|-|?<addon> ...",
-        "Provide a hint to Bisector. If you suspect that a specific addon is or isn't needed to reproduce the issue, you can tell Bisector to include or exclude it from the next set.",
-        "More than one hint can be provided at once by separating them with spaces (e.g. /bisect hint +addon1 -addon2).",
-      }
-    elseif cmd == "end" then
+    elseif cmd == "finish" then
       bisect.priv.print{
         "end",
         "End the current bisect session. A summary of the bisect results will be printed, and your addons will be restored to their original state.",
-        "Once you are ready, /bisect reload to reload your UI and return to your normal addons.",
+        "Once you are ready, use /bisect reset to reload your UI and return to your normal addons.",
+      }
+    elseif cmd == "reset" then
+      bisect.priv.print{
+        "reset",
+        "Stop bisecting and restore your addons to their original state. This will also end the current bisect session.",
+      }
+    elseif cmd == "restore" then
+      bisect.priv.print{
+        "restore init|bad|next",
+        "Restore your addons to their original state, or to the last bad set, or to the next step.",
+        "This will not end the current bisect session, but it will reload your UI."
       }
     elseif cmd == "status" then
       bisect.priv.print{
@@ -158,7 +122,7 @@ do --cli command functions
     end
   end
 
-  function bisect.start()
+  function bisect.cli.start()
     if bisect.sv.mode ~= nil then
       bisect.priv.print{"Can't start, already bisecting. Use /bisect reset to end this session & return to your normal addons, or /bisect good/bad to continue bisecting."}
       return
@@ -168,8 +132,8 @@ do --cli command functions
     end
     bisect.sv.mode = "test"
     bisect.sv.init = true
-    bisect.sv.beforeBisect = bisect.priv.allAddOns()
-    local toTest = bisect.priv.allTestableAddOns()
+    bisect.sv.beforeBisect = bisect.priv.addons.all()
+    local toTest = bisect.priv.addons.testable()
     bisect.sv.queue = bisect.priv.constructQueue(toTest)
     bisect.sv.expectedSet = bisect.priv.initialAddOnSet(toTest)
     bisect.sv.stepSize = math.ceil(#bisect.sv.queue / 2)
@@ -180,7 +144,7 @@ do --cli command functions
   end
 
   ---@param hintString string
-  function bisect.hint(hintString)
+  function bisect.cli.hint(hintString)
     if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
@@ -188,52 +152,42 @@ do --cli command functions
     local hints = {strsplit(" ", hintString)}
     for _, hint in ipairs(hints) do
       local sign, label = hint:match("([+-?]?)(.*)")
-      local addon = tonumber(label) or label
-      if not bisect.priv.hintMakesSense(sign, addon) then
+      if not bisect.priv.hintMakesSense(sign, label) then
         bisect.priv.print{"Invalid hint", hint}
         return
       end
       if sign == "?" then
         local inQueue = false
         for i = #bisect.sv.queue, 1, -1 do
-          if bisect.sv.queue[i] == addon then
+          if bisect.sv.queue[i] == label then
             inQueue = true
             break
           end
         end
         if not inQueue then
-          table.insert(bisect.sv.queue, addon)
+          table.insert(bisect.sv.queue, label)
         end
-        bisect.sv.current[addon] = bisect.sv.current[addon] or {
-          enabled = false,
-          version = "",
-          reason = "test",
-        }
+        bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
+        bisect.sv.expectedSet[label].reason = "test"
       else
         for i = #bisect.sv.queue, 1, -1 do
-          if bisect.sv.queue[i] == addon then
+          if bisect.sv.queue[i] == label then
             table.remove(bisect.sv.queue, i)
             break
           end
         end
         if sign == "+" then
-          bisect.sv.current[addon] = bisect.sv.current[addon] or {
-            enabled = true,
-            version = "",
-            reason = "hint",
-          }
-          bisect.sv.test_loaded[addon] = true
+          bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
+          bisect.sv.expectedSet[label].reason = "+hint"
         else
-          bisect.sv.current[addon] = bisect.sv.current[addon] or {
-            enabled = false,true
-          }
-          bisect.sv.test_loaded[addon] = false
+          bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
+          bisect.sv.expectedSet[label].reason = "-hint"
         end
       end
     end
   end
 
-  function bisect.good()
+  function bisect.cli.good()
     if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
@@ -242,7 +196,7 @@ do --cli command functions
     bisect.priv.continue(bisect.priv.verifyCurrentIsLoaded())
   end
 
-  function bisect.bad()
+  function bisect.cli.bad()
     if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
@@ -266,63 +220,56 @@ do --cli command functions
     end
   end
 
-  function bisect.continue()
+  function bisect.cli.continue()
+    if bisect.sv.mode ~= "test" then
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
+      return
+    end
+    bisect.priv.continue()
   end
 
-  bisect.reload = C_UI.Reload
+  function bisect.cli.reload()
+    C_UI.Reload()
+  end
 
-  ---@param to "init" | "bad"
-  function bisect.reset(to)
+  ---@param to? "init" | "bad"
+  function bisect.cli.reset(to)
+    if bisect.sv.mode == nil then
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
+      return
+    end
+    bisect.priv.loadSet(to or "init", false)
     for k, v in pairs(bisect.sv) do
       bisect.sv[k] = nil
     end
-    bisect.priv.print{"reset"}
+    C_UI.Reload()
   end
 
-  function bisect.status()
-    if bisect.sv.mode ~= nil then
+  function bisect.cli.status()
+    if bisect.sv.mode == nil then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    bisect.priv.print{
-      "Status",
-      string.format("  Current set has %i addons enabled", #bisect.priv.dummyAddons()),
-      string.format("  Bisector expects to take %i steps", bisect.priv.expectedSteps()),
-    }
   end
 
-  ---@param to "init" | "bad"
-  function bisect.restore(to)
-    if bisect.sv.mode ~= nil then
+  ---@param to "init" | "bad" | "next"
+  function bisect.cli.restore(to)
+    if bisect.sv.mode == nil then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    if to == "init" then
-      for name, state in pairs(bisect.sv.beforeBisect) do
-        if state.enabled then
-          C_AddOns.EnableAddOn(name)
-        else
-          C_AddOns.DisableAddOn(name)
-        end
-      end
-      bisect.reload()
-    else
-      for name, state in pairs(bisect.sv.last.addons) do
-        if state.enabled then
-          C_AddOns.EnableAddOn(name)
-        else
-          C_AddOns.DisableAddOn(name)
-        end
-      end
-      bisect.reload()
-    end
+    bisect.priv.loadSet(to, true)
   end
 
 end
 
 -- rest of file is meat & potatoes code
 
-bisect.priv = {}
+---@class Plumbing
+---@field addons table<string, fun(): table<addonName, AddOnData>>
+bisect.priv = {
+  addons = {}
+}
 
 function bisect.priv.init()
   BisectorSaved = BisectorSaved or {}
@@ -351,6 +298,7 @@ function bisect.priv.print(msgs)
   until i > #msgs
 end
 
+---@param decrement? boolean
 function bisect.priv.continue(decrement)
   if bisect.sv.mode ~= "test" then return end
   if decrement then
@@ -401,7 +349,7 @@ local ignoredReasons = {
 ---@return boolean, nil | "subset" | "superset" | "incomparable"
 function bisect.priv.verifyCurrentIsLoaded()
   local code = 0
-  local loadedAddons = bisect.priv.allLoadedAndTestableAddons()
+  local loadedAddons = bisect.priv.addons.loadableAndTestable()
   for name, state in pairs(bisect.sv.expectedSet) do
     if not ignoredReasons[state.reason] and state.enabled and not loadedAddons[name] then
       code = bit.bor(code, 1)
@@ -428,7 +376,7 @@ end
 
 function bisect.priv.captureState()
   bisect.sv.last = {
-    addons = bisect.priv.allAddOns(),
+    addons = bisect.priv.addons.all(),
     libraries = {},
   }
   if LibStub then
@@ -468,7 +416,7 @@ function bisect.priv.printLoadedSet()
       end
     end
   end
-  for addon, loaded in pairs(bisect.priv.allLoadedAddOns()) do
+  for addon, loaded in pairs(bisect.priv.addons.loaded()) do
     if not seen[addon] then
       seen[addon] = {label = addon}
       table.insert(addons, seen[addon])
@@ -502,18 +450,45 @@ function bisect.priv.printResults()
   bisect.priv.print(results)
 end
 
-function bisect.priv.loadNextSet()
+---@param to "init" | "bad" | "next"
+---@param reload? boolean
+function bisect.priv.loadSet(to, reload)
+  if to == "init" then
+    for name, state in pairs(bisect.sv.beforeBisect) do
+      if state.enabled then
+        C_AddOns.EnableAddOn(name)
+      else
+        C_AddOns.DisableAddOn(name)
+      end
+    end
+    if reload then C_UI.Reload() end
+  elseif to == "bad" then
+    for name, state in pairs(bisect.sv.last.addons) do
+      if state.enabled then
+        C_AddOns.EnableAddOn(name)
+      else
+        C_AddOns.DisableAddOn(name)
+      end
+    end
+    if reload then C_UI.Reload() end
+  elseif to == "next" then
+    bisect.priv.loadNextSet(reload)
+  end
+end
+
+---@param reload? boolean
+function bisect.priv.loadNextSet(reload)
   -- Since we call C_UI.Reload() in here,
   -- it's the perfect opportunity to capture the state of addons
   -- without worrying about user shenanigans
   local expected = bisect.sv.expectedSet
-  ---@type table<addonName, TestableAddOnData>
+  ---@type table<addonName, AddOnData>
   local nextExpect = {}
-  for name, state in pairs(bisect.priv.allAddOns()) do
+  for name, state in pairs(bisect.priv.addons.all()) do
     if autoHints[name] then
       -- either this is me, or a 'dev' addon which hasn't changed since the Devonian period
       -- we'll trust that this is not the cause of the issue the user is experiencing
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "auto"
       nextExpect[name].enabled = autoHints[name]
       if autoHints[name] then
@@ -524,12 +499,12 @@ function bisect.priv.loadNextSet()
     elseif not expected[name] or expected[name].reason == "extra" then
       -- addon was added after bisect started,
       -- so we just hope the user knows what they're doing...
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "extra"
     elseif (#state.dependencies > 0) ~= (expected[name].reason == "dependency") then
       -- addon changed its dependencies between reloads...
       -- move it to the proper section and hope for the best...
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = #state.dependencies == 0 and "dependency" or "test"
       local inQueue = false
       for i = #bisect.sv.queue, 1, -1 do
@@ -552,25 +527,25 @@ function bisect.priv.loadNextSet()
         end
       end
     elseif #state.dependencies ~= 0 then
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "dependency"
     elseif expected[name].reason == "proven" then
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "proven"
       nextExpect[name].enabled = false
       C_AddOns.DisableAddOn(name)
     elseif expected[name].reason == "+hint" then
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "+hint"
       nextExpect[name].enabled = true
       C_AddOns.EnableAddOn(name)
     elseif expected[name].reason == "-hint" then
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "-hint"
       nextExpect[name].enabled = false
       C_AddOns.DisableAddOn(name)
     else -- should only be "test" addons which don't have weird dependency bullshit
-      nextExpect[name] = state --[[@as TestableAddOnData]]
+      nextExpect[name] = state
       nextExpect[name].reason = "test"
       nextExpect[name].enabled = false
       C_AddOns.DisableAddOn(name)
@@ -592,7 +567,7 @@ function bisect.priv.loadNextSet()
       C_AddOns.EnableAddOn(bisect.sv.queue[i])
     end
   end
-  -- bisect.reload()
+  if reload then C_UI.Reload() end
 end
 
 local signs = {
@@ -641,6 +616,8 @@ local function addonData(nameber)
   return addon
 end
 
+bisect.priv.addonData = addonData
+
 ---@param predicate? fun(addonData: AddOnData): boolean
 ---@return fun(): table<addonName, AddOnData>
 local function addonSet(predicate)
@@ -656,19 +633,19 @@ local function addonSet(predicate)
   end
 end
 
-bisect.priv.allAddOns = addonSet()
-bisect.priv.allLoadableAddOns = addonSet(function(addon) return addon.loadable end)
-bisect.priv.allTestableAddOns = addonSet(function(addon) return addon.loadable and #addon.dependencies == 0 and addon.security == "INSECURE" and autoHints[addon.name] == nil end)
-bisect.priv.allLoadedAddOns = addonSet(function(addon) return (C_AddOns.IsAddOnLoaded(addon.name)) end)
-bisect.priv.allLoadedAndTestableAddons = addonSet(function(addon) return (C_AddOns.IsAddOnLoaded(addon.name) and addon.loadable and #addon.dependencies == 0 and addon.security == "INSECURE" and autoHints[addon.name] == nil) end)
+bisect.priv.addons.all = addonSet()
+bisect.priv.addons.loadable = addonSet(function(addon) return addon.loadable end)
+bisect.priv.addons.testable = addonSet(function(addon) return addon.loadable and #addon.dependencies == 0 and addon.security == "INSECURE" and autoHints[addon.name] == nil end)
+bisect.priv.addons.loaded = addonSet(function(addon) return (C_AddOns.IsAddOnLoaded(addon.name)) end)
+bisect.priv.addons.loadableAndTestable = addonSet(function(addon) return (C_AddOns.IsAddOnLoaded(addon.name) and addon.loadable and #addon.dependencies == 0 and addon.security == "INSECURE" and autoHints[addon.name] == nil) end)
 
 ---@param toTest table<addonName, AddOnData>
----@return table<addonName, TestableAddOnData>
+---@return table<addonName, AddOnData>
 function bisect.priv.initialAddOnSet(toTest)
-  local addons = bisect.priv.allAddOns()
+  local addons = bisect.priv.addons.all()
   local initialSet = {}
   for name, addon in pairs(addons) do
-    initialSet[name] = CopyTable(addon) --[[@as TestableAddOnData]]
+    initialSet[name] = CopyTable(addon)
     if autoHints[name] then
       initialSet[name].reason = "auto"
     elseif #addon.dependencies > 0 then

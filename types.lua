@@ -2,11 +2,12 @@
 
 ---@class Bisector
 ---@field sv SavedState
----@field priv Private
+---@field cli BisectCommands
+---@field priv Plumbing
 ---@field test table<string, function>
----@field [string] function(...: string[])
 
----@class Private
+---@class BisectCommands
+---@field reload function
 
 ---@class addonName : number
 
@@ -18,9 +19,7 @@
 ---@field loadable boolean
 ---@field dependencies addonName[]
 ---@field security "INSECURE" | "SECURE"
-
----@class TestableAddOnData : AddOnData
----@field reason reason
+---@field reason? reason
 
 ---@alias reason
 ---| "init" # addon is part of initial set
@@ -40,8 +39,8 @@
 ---@field mode? "test" | "done"
 ---@field init? true
 ---@field beforeBisect table<addonName, AddOnData>
----@field lastBadSet results
----@field expectedSet table<addonName, TestableAddOnData>
+---@field last results
+---@field expectedSet table<addonName, AddOnData>
 ---@field queue addonName[]
 ---@field stepSize number
 ---@field index number
