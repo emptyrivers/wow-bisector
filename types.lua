@@ -44,3 +44,4 @@
 ---@field queue addonName[]
 ---@field stepSize number
 ---@field index number
+---@field debug? boolean
