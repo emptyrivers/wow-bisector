@@ -10,28 +10,38 @@
 
 ---@class addonName : number
 
----@alias reason
----| "hint" # user submitted a hint command about this addon
----| "dependency"
----| "test" # addon is part of current set under test
----| "proven" # bisect algorithm discovered this addon
-
----@class results
----@field addons table<addonName, addonState>
----@field libraries table<addonName, string>
-
----@class addonState
+---@class AddOnData
+---@field name addonName
+---@field title string
 ---@field version string
 ---@field enabled boolean
+---@field loadable boolean
+---@field dependencies addonName[]
+---@field security "INSECURE" | "SECURE"
+
+---@class TestableAddOnData : AddOnData
 ---@field reason reason
----@field loaded? boolean
+
+---@alias reason
+---| "init" # addon is part of initial set
+---| "+hint" # user submitted a hint command about this addon
+---| "-hint" # user submitted a hint command about this addon
+---| "test" # addon is part of current set under test
+---| "proven" # bisect algorithm discovered this addon
+---| "dependency" # has > 0  dependencies
+---| "extra" # addon appeared after start of bisect session
+---| "auto" # implicitly trusted
+
+---@class results
+---@field addons table<addonName, AddOnData>
+---@field libraries table<addonName, string>
 
 ---@class SavedState
 ---@field bisecting boolean
----@field before table<addonName, addonState>
----@field last results
----@field current table<addonName, addonState>
+---@field init? true
+---@field beforeBisect table<addonName, AddOnData>
+---@field lastBadSet results
+---@field expectedSet table<addonName, TestableAddOnData>
+---@field queue addonName[]
 ---@field stepSize number
 ---@field index number
----@field queue addonName[]
----@field test_loaded table<addonName, boolean>
