@@ -654,7 +654,7 @@ function bisect.priv.initialAddOnSet(toTest)
       initialSet[name].reason = "extra"
     elseif not toTest[name] then
       initialSet[name].reason = "extra"
-      bisect.priv.print{"extra addon???", name --[[@as string]]}
+      bisect.priv.print{"extra addon???", name}
     else
       initialSet[name].reason = "test"
     end

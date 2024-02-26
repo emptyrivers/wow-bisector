@@ -9,7 +9,7 @@
 ---@class BisectCommands
 ---@field reload function
 
----@class addonName : number
+---@class addonName : string
 
 ---@class AddOnData
 ---@field name addonName
