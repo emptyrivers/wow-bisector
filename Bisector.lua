@@ -159,14 +159,14 @@ do --cli command functions
   end
 
   function bisect.start()
-    if bisect.sv.bisecting then
+    if bisect.sv.mode ~= nil then
       bisect.priv.print{"Can't start, already bisecting. Use /bisect reset to end this session & return to your normal addons, or /bisect good/bad to continue bisecting."}
       return
     end
     for k in pairs(bisect.sv) do
       bisect.sv[k] = nil
     end
-    bisect.sv.bisecting = true
+    bisect.sv.mode = "test"
     bisect.sv.init = true
     bisect.sv.beforeBisect = bisect.priv.allAddOns()
     local toTest = bisect.priv.allTestableAddOns()
@@ -181,7 +181,7 @@ do --cli command functions
 
   ---@param hintString string
   function bisect.hint(hintString)
-    if not bisect.sv.bisecting then
+    if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
@@ -234,7 +234,7 @@ do --cli command functions
   end
 
   function bisect.good()
-    if not bisect.sv.bisecting then
+    if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
@@ -243,7 +243,7 @@ do --cli command functions
   end
 
   function bisect.bad()
-    if not bisect.sv.bisecting then
+    if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
@@ -258,7 +258,7 @@ do --cli command functions
           table.remove(bisect.sv.queue, i)
         end
       end
-      bisect.priv.continue(true)
+      bisect.priv.continue(not bisect.sv.init)
     else
       -- superfluous! we could perhaps do something with incomparable
       -- but i don't feel like writing a set intersect operation
@@ -280,7 +280,7 @@ do --cli command functions
   end
 
   function bisect.status()
-    if not bisect.sv.bisecting then
+    if bisect.sv.mode ~= nil then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
@@ -289,6 +289,33 @@ do --cli command functions
       string.format("  Current set has %i addons enabled", #bisect.priv.dummyAddons()),
       string.format("  Bisector expects to take %i steps", bisect.priv.expectedSteps()),
     }
+  end
+
+  ---@param to "init" | "bad"
+  function bisect.restore(to)
+    if bisect.sv.mode ~= nil then
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
+      return
+    end
+    if to == "init" then
+      for name, state in pairs(bisect.sv.beforeBisect) do
+        if state.enabled then
+          C_AddOns.EnableAddOn(name)
+        else
+          C_AddOns.DisableAddOn(name)
+        end
+      end
+      bisect.reload()
+    else
+      for name, state in pairs(bisect.sv.last.addons) do
+        if state.enabled then
+          C_AddOns.EnableAddOn(name)
+        else
+          C_AddOns.DisableAddOn(name)
+        end
+      end
+      bisect.reload()
+    end
   end
 
 end
@@ -306,11 +333,11 @@ EventUtil.ContinueOnAddOnLoaded(bisectName, bisect.priv.init)
 
 ---@type table<addonName, boolean>
 local autoHints = {
-  [bisectName] = true,
+  [bisectName] = true, -- it would be very silly to disable ourselves!
   ["!BugGrabber"] = true,
   ["BugSack"] = true,
   ["DevTool"] = true,
-  ["BetterAddonList"] = true,
+  ["BetterAddonList"] = true, -- TODO: drop this one, it's purely to make development of bisector easier
 }
 
 ---@param msgs string[]
@@ -325,10 +352,12 @@ function bisect.priv.print(msgs)
 end
 
 function bisect.priv.continue(decrement)
-  if not bisect.sv.bisecting then return end
+  if bisect.sv.mode ~= "test" then return end
   if decrement then
     bisect.sv.index = math.min(bisect.sv.index - bisect.sv.stepSize, #bisect.sv.queue)
     bisect.priv.print{string.format("Decrementing index to %i", bisect.sv.index)}
+  else
+    bisect.sv.index = math.min(bisect.sv.index, #bisect.sv.queue)
   end
   if #bisect.sv.queue == 0 then
     bisect.priv.print{"Bisect complete. Use /bisect end to see the results."}
@@ -355,7 +384,7 @@ function bisect.priv.continue(decrement)
 end
 
 function bisect.priv.finish()
-  bisect.sv.bisecting = false
+  bisect.sv.mode = "done"
   bisect.priv.printResults()
 end
 
@@ -558,7 +587,7 @@ function bisect.priv.loadNextSet()
   end
   bisect.sv.expectedSet = nextExpect
   for i = 1, #bisect.sv.queue do
-    if i <= bisect.sv.index and i > bisect.sv.index - bisect.sv.stepSize then
+    if i > bisect.sv.index or i <= bisect.sv.index - bisect.sv.stepSize then
       nextExpect[bisect.sv.queue[i]].enabled = true
       C_AddOns.EnableAddOn(bisect.sv.queue[i])
     end

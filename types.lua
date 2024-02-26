@@ -37,7 +37,7 @@
 ---@field libraries table<addonName, string>
 
 ---@class SavedState
----@field bisecting boolean
+---@field mode? "test" | "done"
 ---@field init? true
 ---@field beforeBisect table<addonName, AddOnData>
 ---@field lastBadSet results
