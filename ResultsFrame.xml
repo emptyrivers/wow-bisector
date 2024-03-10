@@ -1,0 +1,65 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ https://raw.githubusercontent.com/Gethe/wow-ui-source/live/Interface/FrameXML/UI_shared.xsd">
+  <Include file="ResultsFrame.lua"></Include>
+  <Frame
+    name="BisectorResultsFrameTemplate"
+    parent="UIParent"
+    inherits="PortraitFrameTemplate"
+    mixin="BisectorResultsFrameMixin"
+    toplevel="true"
+    enableMouse="true"
+    clampedToScreen="true"
+    hidden="false"
+    movable="true"
+    frameStrata="DIALOG"
+    virtual="true"
+  >
+    <Anchors>
+      <Anchor point="TOPLEFT" x="200" y="-200" />
+    </Anchors>
+    <KeyValues>
+      <KeyValue key="layoutType" value="ButtonFrameTemplateNoPortrait" type="string"/>
+      <KeyValue key="is_moving" type="boolean" value="false"/>
+      <KeyValue key="left" type="number" value="0"/>
+      <KeyValue key="top" type="number" value="0"/>
+    </KeyValues>
+    <Scripts>
+      <OnLoad method="OnLoad"/>
+      <OnMouseDown method="OnMouseDown"/>
+      <OnMouseUp method="OnMouseUp"/>
+    </Scripts>
+    <Size x="450" y="300"/>
+    <Frames>
+      <Button
+        name="$parentMinimizeMaximizeButton"
+        inherits="MaximizeMinimizeButtonFrameTemplate"
+        parentKey="MinimizeButton"
+      >
+        <Anchors>
+          <Anchor point="RIGHT" relativeTo="$parentCloseButton" relativePoint="LEFT" />
+        </Anchors>
+      </Button>
+      <Frame
+        inherits="ScrollingEditBoxTemplate"
+        parentKey="Content"
+      >
+        <Anchors>
+          <Anchor
+           point="TOPLEFT"
+           relativePoint="BOTTOMLEFT"
+           relativeKey="$parent.TitleContainer"
+          />
+          <Anchor point="BOTTOMRIGHT"/>
+        </Anchors>
+      </Frame>
+      <EventFrame
+        parentKey="ScrollBar"
+        inherits="WowTrimScrollBar"
+      >
+        <Anchors>
+          <Anchor point="TOPRIGHT" relativeKey="$parent.Content" />
+          <Anchor point="BOTTOMRIGHT" relativeKey="$parent.Content" />
+        </Anchors>
+      </EventFrame>
+    </Frames>
+  </Frame>
+</Ui>

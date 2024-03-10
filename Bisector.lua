@@ -826,6 +826,12 @@ do -- initialize the addon
     if debug then
       bisect.priv.startWatching()
     end
+    -- if bisect.sv.mode ~= nil then
+      bisect.frame = CreateFrame("frame", "BisectorResults", UIParent, "BisectorResultsFrameTemplate")
+      bisect.frame:Show()
+      bisect.sv.frameData = bisect.sv.frameData or {}
+      bisect.frame:Initialize(bisect.sv.frameData)
+    -- end
   end
 
   EventUtil.ContinueOnAddOnLoaded(bisectName, bisect.priv.init)

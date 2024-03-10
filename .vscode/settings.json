@@ -10,6 +10,8 @@
     "type",
     "unpack",
     "enabled",
-    "ReloadUI"
+    "ReloadUI",
+    "ButtonFrameTemplate_HidePortrait",
+    "ScrollUtil"
   ]
 }

@@ -12,6 +12,7 @@
         "unpack",
         "enabled",
         "ReloadUi",
-        "DevTool"
+        "DevTool",
+        "ButtonFrameTemplate_HidePortrait"
     ]
 }

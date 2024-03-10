@@ -8,3 +8,4 @@
 ## OptionalDependencies: DevTool
 
 Bisector.lua
+ResultsFrame.xml

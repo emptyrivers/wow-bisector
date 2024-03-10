@@ -5,6 +5,8 @@
 ---@field cli BisectCommands
 ---@field priv Plumbing
 ---@field test table<string, function>
+---@field frame any
+
 
 ---@class BisectCommands
 ---@field reload function
@@ -45,3 +47,4 @@
 ---@field stepSize number
 ---@field index number
 ---@field debug? boolean
+---@field frameData table
