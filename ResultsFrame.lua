@@ -8,11 +8,20 @@ BisectorResultsFrameMixin = {}
 local fill = string.rep("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis knostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n\n", 10)
 
 function BisectorResultsFrameMixin:OnLoad()
-  ButtonFrameTemplate_HidePortrait(self)
+  -- ButtonFrameTemplate_HidePortrait(self)
   self.TitleContainer.TitleText:SetText('Bisector Results')
-  self.MinimizeButton:SetOnMaximizedCallback(function() self:Maximize() end)
-  self.MinimizeButton:SetOnMinimizedCallback(function() self:Minimize() end)
+  self.MaxMinButtonFrame:SetOnMaximizedCallback(function() self:Maximize() end)
+  self.MaxMinButtonFrame:SetOnMinimizedCallback(function() self:Minimize() end)
   ScrollUtil.RegisterScrollBoxWithScrollBar(self.Content:GetScrollBox(), self.ScrollBar)
+  local withBar = {
+    CreateAnchor("TOPLEFT", self, "TOPLEFT", 10, -22),
+    CreateAnchor("BOTTOMRIGHT", self, "BOTTOMRIGHT", -22, 1)
+  }
+  local withoutBar = {
+    CreateAnchor("TOPLEFT", self, "TOPLEFT", 10, -22),
+    CreateAnchor("BOTTOMRIGHT", self, "BOTTOMRIGHT", -2, 1)
+  }
+  ScrollUtil.AddManagedScrollBarVisibilityBehavior(self.Content:GetScrollBox(), self.ScrollBar, withBar, withoutBar)
   self.Content:SetText(fill)
 end
 
@@ -48,17 +57,12 @@ end
 
 
 function BisectorResultsFrameMixin:Minimize()
-  self.Content:Hide()
-  self.ScrollBar:Hide()
   self:StashCoords()
   self:ApplyCoords()
-  self.height = self:GetHeight()
   self:SetHeight(60)
 end
 
 function BisectorResultsFrameMixin:Maximize()
-  self.Content:Show()
-  self.ScrollBar:Show()
   self:SetHeight(300)
 end
 

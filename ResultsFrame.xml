@@ -3,7 +3,7 @@
   <Frame
     name="BisectorResultsFrameTemplate"
     parent="UIParent"
-    inherits="PortraitFrameTemplate"
+    inherits="DefaultPanelTemplate"
     mixin="BisectorResultsFrameMixin"
     toplevel="true"
     enableMouse="true"
@@ -30,12 +30,14 @@
     <Size x="450" y="300"/>
     <Frames>
       <Button
-        name="$parentMinimizeMaximizeButton"
+        parentKey="CloseButton"
+        inherits="UIPanelCloseButtonDefaultAnchors"
+      />
+      <Button
         inherits="MaximizeMinimizeButtonFrameTemplate"
-        parentKey="MinimizeButton"
       >
         <Anchors>
-          <Anchor point="RIGHT" relativeTo="$parentCloseButton" relativePoint="LEFT" />
+          <Anchor point="RIGHT" relativeKey="$parent.CloseButton" relativePoint="LEFT" />
         </Anchors>
       </Button>
       <Frame
@@ -43,12 +45,8 @@
         parentKey="Content"
       >
         <Anchors>
-          <Anchor
-           point="TOPLEFT"
-           relativePoint="BOTTOMLEFT"
-           relativeKey="$parent.TitleContainer"
-          />
-          <Anchor point="BOTTOMRIGHT"/>
+          <Anchor point="TOPLEFT" x="10" y="-22" />
+          <Anchor point="BOTTOMRIGHT"  x="-2" y="1"/>
         </Anchors>
       </Frame>
       <EventFrame

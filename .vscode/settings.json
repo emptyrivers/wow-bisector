@@ -12,6 +12,8 @@
     "enabled",
     "ReloadUI",
     "ButtonFrameTemplate_HidePortrait",
-    "ScrollUtil"
+    "ScrollUtil",
+    "CreateScrollBoxLinearView",
+    "CreateAnchor"
   ]
 }

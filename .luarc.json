@@ -13,6 +13,8 @@
         "enabled",
         "ReloadUi",
         "DevTool",
-        "ButtonFrameTemplate_HidePortrait"
+        "ButtonFrameTemplate_HidePortrait",
+        "ScrollUtil",
+        "CreateAnchor"
     ]
 }
