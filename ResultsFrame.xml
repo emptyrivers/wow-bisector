@@ -17,10 +17,9 @@
       <Anchor point="TOPLEFT" x="200" y="-200" />
     </Anchors>
     <KeyValues>
-      <KeyValue key="layoutType" value="ButtonFrameTemplateNoPortrait" type="string"/>
+      <!-- <KeyValue key="layoutType" value="ButtonFrameTemplateNoPortrait" type="string"/> -->
       <KeyValue key="is_moving" type="boolean" value="false"/>
-      <KeyValue key="left" type="number" value="0"/>
-      <KeyValue key="top" type="number" value="0"/>
+      <KeyValue key="results" type="string" value="Hello, World!"/>
     </KeyValues>
     <Scripts>
       <OnLoad method="OnLoad"/>
