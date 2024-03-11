@@ -23,7 +23,7 @@ function BisectorResultsFrameMixin:OnLoad()
   }
   ScrollUtil.AddManagedScrollBarVisibilityBehavior(self.Content:GetScrollBox(), self.ScrollBar, withBar, withoutBar)
   local rope = {}
-  for i = 1, 2 do
+  for i = 1, 10 do
     table.insert(rope, iipsum)
   end
   local str = table.concat(rope, "\n\n")

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+
+      # - name: Install and run Luacheck
+      #   uses: nebularg/actions-luacheck@v1
+      #   with:
+      #     args: "--no-color -q"
+      #     annotate: warning
+
+      - name: Create Package
+        uses: BigWigsMods/packager@master
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+          GITHUB_OAUTH: ${{ secrets.GITHUB_OAUTH }}
+
+      - name: Fix Namespaces
+        uses: emptyrivers/wow-xml-namespacer
+        with:
+          name: Bisector
+          path: .release/Bisector/ClipBoard
+
+      - uses: actions/upload-artifact@v1.0.0
+        with:
+          name: Bisector-CI
+          path: .release/Bisector

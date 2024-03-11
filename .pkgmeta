@@ -5,3 +5,6 @@ enable-nolib-creation: no
 ignore:
   - types.lua
   - README.md
+
+externals:
+  ClipBoard: https://github.com/emptyrivers/wow-clipboard-template
