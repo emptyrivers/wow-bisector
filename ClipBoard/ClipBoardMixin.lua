@@ -118,14 +118,17 @@ end
 
 function BisectorClipBoardMixin:OnTextChanged_Intrinsic()
   if not self:TextIsClipBoardText() then
-    self:SetText(self.clipBoardText)
+    self:SetText(("\n%s\n"):format(self.clipBoardText))
     if not self:IsMultiLine() then
       self:ClearHistory()
     else
       self:SetCursorPosition(1)
     end
     self:HighlightClipBoardText()
+  else
+    self:TriggerEvent("OnTextChanged", self)
   end
+
 end
 
 function BisectorClipBoardMixin:OnKeyDown(key)
