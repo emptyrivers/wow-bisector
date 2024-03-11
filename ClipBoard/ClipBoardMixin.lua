@@ -62,8 +62,8 @@ function BisectorClipBoardMixin:OnSetSpacing(callback, ...)
 end
 
 function BisectorClipBoardMixin:OnMouseDown_Intrinsic()
-	self:SetFocus();
-	self:TriggerEvent("OnMouseDown", self);
+  self:ClearFocus()
+	self:SetFocus()
 end
 
 function BisectorClipBoardMixin:OnMouseUp_Intrinsic()
