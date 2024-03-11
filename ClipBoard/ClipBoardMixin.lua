@@ -35,7 +35,7 @@ function BisectorClipBoardMixin:UpdateTextInsets()
   if self:IsMultiLine() then
     local height, spacing = self:GetFontHeight(), self:GetSpacing()
     local overscan = height + spacing
-    self:SetTextInsets(0, 0, -overscan, -overscan)
+    self:SetTextInsets(0, 0, -overscan, 0)
   else
     self:SetTextInsets(0, 0, 0, 0)
   end
