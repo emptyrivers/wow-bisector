@@ -1,5 +1,10 @@
-<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/ https://raw.githubusercontent.com/Gethe/wow-ui-source/live/Interface/FrameXML/UI_shared.xsd">
-  <Include file="ResultsFrame.lua"></Include>
+<Ui
+  xmlns="http://www.blizzard.com/wow/ui/"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ./Bisector.xsd"
+>
+  <Include file="ResultsFrame.lua"/>
+  <Include file="ClipBoard/index.xml" />
   <Frame
     name="BisectorResultsFrameTemplate"
     parent="UIParent"
@@ -8,7 +13,6 @@
     toplevel="true"
     enableMouse="true"
     clampedToScreen="true"
-    hidden="false"
     movable="true"
     frameStrata="DIALOG"
     virtual="true"
@@ -19,7 +23,7 @@
     <KeyValues>
       <!-- <KeyValue key="layoutType" value="ButtonFrameTemplateNoPortrait" type="string"/> -->
       <KeyValue key="is_moving" type="boolean" value="false"/>
-      <KeyValue key="results" type="string" value="Hello, World!"/>
+      <KeyValue key="results" type="string" value="Hello, World!\nSecond Line!"/>
     </KeyValues>
     <Scripts>
       <OnLoad method="OnLoad"/>
@@ -40,7 +44,7 @@
         </Anchors>
       </Button>
       <Frame
-        inherits="ScrollingEditBoxTemplate"
+        inherits="BisectorScrollingClipBoardBoxTemplate"
         parentKey="Content"
       >
         <Anchors>

@@ -14,6 +14,8 @@
     "ButtonFrameTemplate_HidePortrait",
     "ScrollUtil",
     "CreateScrollBoxLinearView",
-    "CreateAnchor"
+    "CreateAnchor",
+    "class",
+    "ScrollBoxConstants"
   ]
 }
