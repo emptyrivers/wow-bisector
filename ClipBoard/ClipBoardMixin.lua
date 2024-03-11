@@ -64,25 +64,26 @@ end
 function BisectorClipBoardMixin:OnMouseDown_Intrinsic()
   self:ClearFocus()
 	self:SetFocus()
+	self:TriggerEvent("OnMouseDown", self)
 end
 
 function BisectorClipBoardMixin:OnMouseUp_Intrinsic()
-	self:TriggerEvent("OnMouseUp", self);
+	self:TriggerEvent("OnMouseUp", self)
 end
 
 function BisectorClipBoardMixin:OnTabPressed_Intrinsic()
-	self:TriggerEvent("OnTabPressed", self);
+	self:TriggerEvent("OnTabPressed", self)
 end
 
 function BisectorClipBoardMixin:OnEditFocusGained_Intrinsic()
   self:HighlightClipBoardText()
-  self:TriggerEvent("OnEditFocusGained", self);
+  self:TriggerEvent("OnEditFocusGained", self)
 end
 
 function BisectorClipBoardMixin:OnEditFocusLost_Intrinsic()
-	self:ClearHighlightText();
+	self:ClearHighlightText()
 
-	self:TriggerEvent("OnEditFocusLost", self);
+	self:TriggerEvent("OnEditFocusLost", self)
 end
 
 function BisectorClipBoardMixin:OnCursorChanged_Intrinsic(x, y, width, height, context)
@@ -104,9 +105,9 @@ function BisectorClipBoardMixin:OnCursorChanged_Intrinsic(x, y, width, height, c
 end
 
 function BisectorClipBoardMixin:OnEscapePressed_Intrinsic()
-	self:ClearFocus();
+	self:ClearFocus()
 
-	self:TriggerEvent("OnEscapePressed", self);
+	self:TriggerEvent("OnEscapePressed", self)
 end
 
 function BisectorClipBoardMixin:OnArrowPressed_Intrinsic(key)
@@ -174,15 +175,15 @@ function BisectorClipBoardMixin:SetClipBoardText(text)
 end
 
 function BisectorClipBoardMixin:GetCursorOffset()
-	return self.cursorOffset or 0;
+	return self.cursorOffset or 0
 end
 
 function BisectorClipBoardMixin:GetCursorHeight()
-	return self.cursorHeight or 0;
+	return self.cursorHeight or 0
 end
 
 function BisectorClipBoardMixin:GetFontHeight()
-	return select(2, self:GetFont());
+	return select(2, self:GetFont())
 end
 
 function BisectorClipBoardMixin:GetClipBoardText()
