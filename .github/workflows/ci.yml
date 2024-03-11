@@ -16,23 +16,24 @@ jobs:
         with:
           fetch-tags: true
 
-      # - name: Install and run Luacheck
-      #   uses: nebularg/actions-luacheck@v1
-      #   with:
-      #     args: "--no-color -q"
-      #     annotate: warning
-
       - name: Create Package
         uses: BigWigsMods/packager@master
-        env:
-          CF_API_KEY: ${{ secrets.CF_API_KEY }}
-          GITHUB_OAUTH: ${{ secrets.GITHUB_OAUTH }}
+        with:
+          args: -dz
+        # env:
+        #   CF_API_KEY: ${{ secrets.CF_API_KEY }}
+        #   GITHUB_OAUTH: ${{ secrets.GITHUB_OAUTH }}
 
       - name: Fix Namespaces
         uses: emptyrivers/wow-xml-namespacer@main
         with:
           name: Bisector
           path: .release/Bisector/ClipBoard
+
+      - name: Upload Package
+        uses: BigWigsMods/packager@master
+        with:
+          args: -eld
 
       - uses: actions/upload-artifact@v1.0.0
         with:
