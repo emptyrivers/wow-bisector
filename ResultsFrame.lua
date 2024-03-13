@@ -27,16 +27,17 @@ function BisectorResultsFrameMixin:OnLoad()
     table.insert(rope, iipsum)
   end
   local str = table.concat(rope, "\n\n")
-  print('setting text with', #str, 'characters')
   self.Content:SetText(str)
 end
 
 function BisectorResultsFrameMixin:Initialize(saved)
   self.saved = saved
-  if self:IsMinimized() then
-    self:SetHeight(60)
-  end
   self:ApplyCoords()
+  if self:IsMinimized() then
+    self.MaxMinButtonFrame:Minimize()
+  else
+    self.MaxMinButtonFrame:Maximize()
+  end
 end
 
 function BisectorResultsFrameMixin:OnMouseDown(button)
@@ -52,6 +53,7 @@ function BisectorResultsFrameMixin:OnMouseUp(button)
     self:StashCoords()
     self:ApplyCoords()
     self.is_moving = false
+    self:SetUserPlaced(false)
   end
 end
 

@@ -5,7 +5,7 @@ local bisectName, bisect = ...
 
 local debug = false
 --@debug@
-debug = true
+debug = false
 --@end-debug@
 
 
