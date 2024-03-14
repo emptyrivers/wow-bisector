@@ -138,14 +138,14 @@ do --cli command functions
     }
   end
 
-  ---@param hintString string
-  function bisect.cli.hint(hintString)
+  ---@param ... string[]
+  function bisect.cli.hint(...)
     if bisect.sv.mode ~= "test" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    local hints = {strsplit(" ", hintString)}
-    for _, hint in ipairs(hints) do
+    for i = 1, select("#", ...) do
+      local hint = select(i, ...)
       local sign, label = hint:match("([+-?!]?)(.*)")
       if not bisect.priv.hintMakesSense(sign, label) then
         bisect.priv.print{"Invalid hint", hint}
@@ -164,6 +164,15 @@ do --cli command functions
         end
         bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
         bisect.sv.expectedSet[label].reason = sign == "?" and "test" or "extra"
+        if sign == "?" then
+          bisect.priv.print{
+            string.format("Adding %q to test queue", label)
+          }
+        else
+          bisect.priv.print{
+            string.format("Ignoring %q", label)
+          }
+        end
       else
         for i = #bisect.sv.queue, 1, -1 do
           if bisect.sv.queue[i] == label then
@@ -174,9 +183,15 @@ do --cli command functions
         if sign == "+" then
           bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
           bisect.sv.expectedSet[label].reason = "+hint"
+          bisect.priv.print{
+            string.format("Setting %q as enabled", label)
+          }
         else
           bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
           bisect.sv.expectedSet[label].reason = "-hint"
+          bisect.priv.print{
+            string.format("Setting %q as disabled", label)
+          }
         end
       end
     end
@@ -199,7 +214,12 @@ do --cli command functions
     local ok, reason = bisect.priv.verifyCurrentIsLoaded()
     if ok or reason == "subset" then
       bisect.priv.dprint{"removing unloaded addons from queue"}
-      bisect.priv.captureState(false)
+      bisect.priv.proveAddonState(function(state)
+        if state.reason == "test" and not state.enabled then
+          return false
+        end
+      end)
+      bisect.priv.captureState()
       -- delete all currently not loaded from queue
       for i = #bisect.sv.queue, 1, -1 do
         if not C_AddOns.IsAddOnLoaded(bisect.sv.queue[i]) then
@@ -246,8 +266,12 @@ do --cli command functions
       return
     elseif bisect.sv.mode == "test" then
       bisect.priv.print{
-        string.format("Step %i of (%i-%i)", bisect.sv.stepsTaken, bisect.sv.minSteps, bisect.sv.maxSteps),
+        string.format("Step %i of (%i-%i)", bisect.sv.stepsTaken,
+          bisect.sv.stepsTaken + math.ceil(math.log(#bisect.sv.queue, 2)), -- can be a bit of an overestimate but good enough
+          #bisect.sv.queue * 2 + bisect.sv.stepsTaken
+        ),
         string.format("Queue length: %i", #bisect.sv.queue),
+        string.format("Addons disabled in current set: %i", math.min(bisect.sv.stepSize, bisect.sv.index)),
       }
     else
       bisect.priv.print{"Bisect complete. Use /bisect print to see the results."}
@@ -268,7 +292,7 @@ do --cli command functions
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    bisect.priv.printResults()
+    bisect.priv.printResults(bisect.sv.mode == "test")
   end
 
   function bisect.cli.debug()
@@ -377,8 +401,11 @@ do -- meat & potatoes code
 
   function bisect.priv.finish()
     bisect.sv.mode = "done"
-    bisect.priv.captureState(true)
-    bisect.priv.printResults()
+    bisect.priv.proveAddonState(function(state)
+      return state.reason == "test"
+    end)
+    bisect.priv.captureState()
+    bisect.priv.printResults(true)
   end
 
   local codes = {
@@ -419,33 +446,38 @@ do -- meat & potatoes code
     return code == 0, codes[code]
   end
 
-  ---@param proveState boolean
-  function bisect.priv.captureState(proveState)
-    ---@return table<addonName, AddOnResultData>
-    local function addonResultData()
-      local all = bisect.priv.addons.all()
-      local resultData = {}
-      for name, state in pairs(all) do
-        resultData[name] = CopyTable(state, true)
-        if not bisect.sv.expectedSet[name] then
-          resultData[name].reason = "extra"
-        elseif bisect.sv.expectedSet[name].reason == "test" and state.enabled == proveState then
-          resultData[name].reason = "proven"
-        else
-          resultData[name].reason = bisect.sv.expectedSet[name].reason
+  function bisect.priv.proveAddonState(pred)
+    for name, state in pairs(bisect.sv.expectedSet) do
+      if state.reason == "test" then
+        local result = pred(state)
+        if result ~= nil then
+          state.reason = "proven"
+          state.enabled = result
+          bisect.priv.dprint{string.format("proving %q as %s", name, state.enabled and "enabled" or "disabled")}
         end
       end
-      return resultData
     end
-    bisect.sv.last = {
-      addons = addonResultData(),
-      libraries = {},
-    }
+  end
+
+  function bisect.priv.captureLibraryState()
+    local libs = {}
     if LibStub then
       for lib in LibStub:IterateLibraries() do
-        bisect.sv.last.libraries[lib] = LibStub.minors[lib]
+        libs[lib] = LibStub.minors[lib]
       end
     end
+    return libs
+  end
+
+  function bisect.priv.captureState()
+    bisect.sv.last = {
+      addons = {},
+      libraries = {},
+    }
+    for name, state in pairs(bisect.sv.expectedSet) do
+      bisect.sv.last.addons[name] = CopyTable(state, true)
+    end
+    bisect.sv.last.libraries = bisect.priv.captureLibraryState()
     -- todo: add warnings for weird changes in addon data
   end
 
@@ -501,17 +533,45 @@ do -- meat & potatoes code
     bisect.priv.print{table.concat(rope, "")}
   end
 
-  function bisect.priv.printResults()
+  ---@param incomplete boolean
+  function bisect.priv.printResults(incomplete)
 
     local toPrint = {}
     local dependents = {}
-    for name, state in pairs(bisect.sv.last.addons) do
-      if state.loaded then
+    local statistics = {
+      hintsTaken = 0,
+      addonsProven = 0,
+      addonsDisproven = 0,
+      addonsUnproven = 0,
+      stepsTaken = bisect.sv.stepsTaken,
+      minSteps = bisect.sv.minSteps,
+      maxSteps = bisect.sv.maxSteps,
+    }
+
+    ---@type results["libraries"]
+    local libraries = incomplete and bisect.priv.captureLibraryState() or bisect.sv.last.libraries
+    local addons = incomplete and bisect.sv.expectedSet or bisect.sv.last.addons
+    for name, state in pairs(addons) do
+      if state.reason == "test" or state.reason == "init" then
+        bisect.priv.dprint{string.format("skipping %q because it's still under test - %s", name, state.reason)}
+        statistics.addonsUnproven = statistics.addonsUnproven + 1
+      elseif state.reason == "proven" then
+        if state.enabled then
+          statistics.addonsProven = statistics.addonsProven + 1
+        else
+          statistics.addonsDisproven = statistics.addonsDisproven + 1
+        end
+      elseif state.reason == "+hint" or state.reason == "-hint" then
+        statistics.hintsTaken = statistics.hintsTaken + 1
+      end
+
+      if state.loaded or state.reason == "test" or state.reason == "init" or state.reason == "dependency" then
         dependents[name] = {
           name = name,
           title = state.title,
           version = state.version,
           reason = state.reason,
+          loaded = state.loaded,
           dependents = {},
         }
         if #state.dependencies == 0 then
@@ -519,17 +579,26 @@ do -- meat & potatoes code
         end
       end
     end
-
     for name, depData in pairs(dependents) do
-      for _, dep in ipairs(bisect.sv.last.addons[name].dependencies) do
+      for _, dep in ipairs(addons[name].dependencies) do
         if dependents[dep] then
           dependents[dep].dependents[name] = depData
         end
       end
     end
 
+    local reasonToLetter = {
+      ["init"]       = { letter = "I", sortOrder = 1 },
+      ["test"]       = { letter = "T", sortOrder = 2 },
+      ["proven"]     = { letter = "P", sortOrder = 3 },
+      ["+hint"]      = { letter = "H", sortOrder = 4 },
+      ["-hint"]      = { letter = "h", sortOrder = 5 },
+      ["dependency"] = { letter = "D", sortOrder = 6 },
+      ["extra"]      = { letter = "E", sortOrder = 7 },
+      ["auto"]       = { letter = "A", sortOrder = 8 },
+    }
     local arrays = {}
-    local function tableToArray(tbl, sortField, recurseField)
+    local function tableToArray(tbl, sortFunc)
       local arr = {}
       for k, v in pairs(tbl) do
         if not arrays[k] then
@@ -537,38 +606,44 @@ do -- meat & potatoes code
         end
         table.insert(arr, v)
       end
-      table.sort(arr, function(a, b) return a[sortField] < b[sortField] end)
+      table.sort(arr, sortFunc)
       return arr
     end
-    local arrayToPrint = tableToArray(toPrint, "title", "dependents")
+    local function sortFunc(a, b)
+      if a.reason == b.reason then
+        return a.title < b.title
+      else
+        return reasonToLetter[a.reason].sortOrder < reasonToLetter[b.reason].sortOrder
+      end
+    end
+    local arrayToPrint = tableToArray(toPrint, sortFunc)
     local rope = {}
     table.insert(rope, "Bisect results:")
-    table.insert(rope, "printout version: 1.0.0")
     table.insert(rope, "")
-    table.insert(rope, string.format("Bisect took %i out of (%i-%i) steps", bisect.sv.stepsTaken, bisect.sv.minSteps, bisect.sv.maxSteps))
+    table.insert(rope, "report version: 1.0.1")
+    if incomplete or statistics.addonsUnproven > 0 then
+      table.insert(rope, string.format("WARNING: Bisect algorithm is incomplete, %i addons still under test", statistics.addonsUnproven))
+    end
+    table.insert(rope, string.format("Bisect took %i out of (%i-%i) steps", statistics.stepsTaken, statistics.minSteps, statistics.maxSteps))
+    if statistics.hintsTaken > 0 then
+      table.insert(rope, string.format("Hints taken: %i", statistics.hintsTaken))
+    end
+    table.insert(rope, string.format("Addons ruled out: %i", statistics.addonsDisproven))
+    table.insert(rope, string.format("Addons proved: %i", statistics.addonsProven))
     table.insert(rope, "")
     table.insert(rope, "Narrowest set of addons that reproduces the issue:")
-    local reasonToLetter = {
-      ["init"] = "I",
-      ["+hint"] = "H",
-      ["-hint"] = "h",
-      ["test"] = "T",
-      ["proven"] = "P",
-      ["dependency"] = "D",
-      ["extra"] = "E",
-      ["auto"] = "A",
-    }
-    local function addLine(rope, level, title, version, reason)
-      table.insert(rope, string.format("%s|-- %s:%s @ %s", string.rep("|  ", level - 1), reasonToLetter[reason], title, version))
+    local function addLine(rope, level, title, version, reason, loaded)
+      local letter = loaded and reasonToLetter[reason].letter:upper() or reasonToLetter[reason].letter:lower()
+      table.insert(rope, string.format("%s|-- %s:%s @ %s", string.rep("|  ", level - 1), letter, title, version))
     end
     local function addDotLine(rope, level, title)
       table.insert(rope, string.format("%s|--%s...(see above)", string.rep("|  ", level - 1), title))
     end
     local addonAlreadyPrinted = {}
     local function printAddOnData(rope, level, data)
-      addLine(rope, level, data.title, data.version, data.reason)
+      addLine(rope, level, data.title, data.version, data.reason, data.loaded)
       addonAlreadyPrinted[data.name] = true
-      for i, dep in ipairs(tableToArray(data.dependents, "title", "dependents")) do
+      for i, dep in ipairs(tableToArray(data.dependents, sortFunc)) do
         if not addonAlreadyPrinted[dep.title] then
           printAddOnData(rope, level + 1, dep)
         else
@@ -581,10 +656,10 @@ do -- meat & potatoes code
     end
     table.insert(rope, "")
     table.insert(rope, "Libraries:")
-    for lib, version in pairs(bisect.sv.last.libraries) do
+    for lib, version in pairs(libraries) do
       table.insert(rope, string.format("%s @ %s", lib, version))
     end
-
+    bisect.priv.ensureResultsFrame()
     bisect.frame:Show()
     bisect.frame:SetText(table.concat(rope, "\n"))
   end
@@ -759,6 +834,14 @@ do -- meat & potatoes code
     return true
   end
 
+  function bisect.priv.ensureResultsFrame()
+    if not bisect.frame then
+      bisect.frame = CreateFrame("frame", "BisectorResults", UIParent, "BisectorResultsFrameTemplate")
+      bisect.sv.frameData = bisect.sv.frameData or {}
+      bisect.frame:Initialize(bisect.sv.frameData)
+    end
+  end
+
   ---@param nameber number | addonName get it? it's either a number or a name!
   ---@return AddOnData?
   function bisect.priv.addonData(nameber)
@@ -876,6 +959,7 @@ do -- try to detect runtime changes to addon list
 
   function bisect.priv.startWatching()
     watching = true
+    do return end
     if not snooped then
       snoop(C_AddOns, "EnableAddOn", function(name)
         bisect.priv.dprint{string.format("EnableAddOn %q", name)}
@@ -926,10 +1010,7 @@ do -- initialize the addon
       bisect.priv.startWatching()
     end
     if bisect.sv.mode ~= nil then
-      bisect.frame = CreateFrame("frame", "BisectorResults", UIParent, "BisectorResultsFrameTemplate")
-      -- bisect.frame:Show()
-      bisect.sv.frameData = bisect.sv.frameData or {}
-      bisect.frame:Initialize(bisect.sv.frameData)
+      bisect.priv.ensureResultsFrame()
     end
   end
 
