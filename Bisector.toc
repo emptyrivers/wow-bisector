@@ -2,7 +2,7 @@
 ## Interface: 100205
 ## Title: Bisector
 ## Author: rivers
-## Version: 0.1
+## Version: 1.0
 ## Notes: Find that broken addon!
 ## SavedVariables: BisectorSaved
 ## OptionalDependencies: DevTool
