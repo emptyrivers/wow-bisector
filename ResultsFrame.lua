@@ -22,12 +22,6 @@ function BisectorResultsFrameMixin:OnLoad()
     CreateAnchor("BOTTOMRIGHT", self, "BOTTOMRIGHT", -2, 1)
   }
   ScrollUtil.AddManagedScrollBarVisibilityBehavior(self.Content:GetScrollBox(), self.ScrollBar, withBar, withoutBar)
-  local rope = {}
-  for i = 1, 10 do
-    table.insert(rope, iipsum)
-  end
-  local str = table.concat(rope, "\n\n")
-  self.Content:SetText(str)
 end
 
 function BisectorResultsFrameMixin:Initialize(saved)
@@ -82,3 +76,8 @@ function BisectorResultsFrameMixin:Maximize()
   self:SetHeight(300)
   self.saved.minimized = false
 end
+
+function BisectorResultsFrameMixin:SetText(text)
+  self.Content:SetText(text)
+end
+

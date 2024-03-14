@@ -16,6 +16,7 @@
     movable="true"
     frameStrata="DIALOG"
     virtual="true"
+    hidden="true"
   >
     <Anchors>
       <Anchor point="TOPLEFT" x="200" y="-200" />

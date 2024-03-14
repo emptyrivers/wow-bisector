@@ -19,6 +19,7 @@
 ---@field version string
 ---@field enabled boolean
 ---@field loadable boolean
+---@field loaded boolean
 ---@field dependencies addonName[]
 ---@field security "INSECURE" | "SECURE"
 ---@field reason? reason
@@ -33,8 +34,11 @@
 ---| "extra" # addon appeared after start of bisect session
 ---| "auto" # implicitly trusted
 
+---@class AddOnResultData : AddOnData
+---@field reason reason
+
 ---@class results
----@field addons table<addonName, AddOnData>
+---@field addons table<addonName, AddOnResultData>
 ---@field libraries table<addonName, string>
 
 ---@class SavedState
@@ -48,3 +52,6 @@
 ---@field index number
 ---@field debug? boolean
 ---@field frameData table
+---@field stepsTaken number
+---@field maxSteps number
+---@field minSteps number
