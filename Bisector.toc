@@ -7,6 +7,7 @@
 ## SavedVariables: BisectorSaved
 ## OptionalDependencies: DevTool
 ## X-Curse-Project-ID: 976194
+## X-Wago-ID: v63o8o6b
 
 Bisector.lua
 ResultsFrame.xml
