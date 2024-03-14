@@ -6,6 +6,7 @@
 ## Notes: Find that broken addon!
 ## SavedVariables: BisectorSaved
 ## OptionalDependencies: DevTool
+## X-Curse-Project-ID: 976194
 
 Bisector.lua
 ResultsFrame.xml

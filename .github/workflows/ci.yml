@@ -19,10 +19,7 @@ jobs:
       - name: Create Package
         uses: BigWigsMods/packager@master
         with:
-          args: -dz
-        # env:
-        #   CF_API_KEY: ${{ secrets.CF_API_KEY }}
-        #   GITHUB_OAUTH: ${{ secrets.GITHUB_OAUTH }}
+          args: -doz
 
       - name: Fix Namespaces
         uses: emptyrivers/wow-xml-namespacer@main
@@ -33,7 +30,7 @@ jobs:
       - name: Upload Package
         uses: BigWigsMods/packager@master
         with:
-          args: -eld
+          args: -celo
 
       - uses: actions/upload-artifact@v1.0.0
         with:
