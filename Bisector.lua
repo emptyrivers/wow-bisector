@@ -58,9 +58,8 @@ do --cli command functions
         "  /bisect bad - Mark the current addon set as bad",
         "  /bisect continue - Continue the current bisect session",
         "  /bisect reload - Alias for /reloadui",
-        "  /bisect finish - End the current bisect session",
         "  /bisect reset - Stop bisecting and restore your addons to their original state",
-        "  /bisect restore init|bad - Restore your addons to their original state, or to the last bad set",
+        "  /bisect restore init|bad|next - Restore your addons to their original state, or to the last bad set, or the next set to test.",
         "  /bisect status - Show the current bisect session status",
         "  /bisect print - Print the bisect results",
       }
@@ -95,12 +94,6 @@ do --cli command functions
       bisect.priv.print{
         "reload",
         "Alias for /reloadui."
-      }
-    elseif cmd == "finish" then
-      bisect.priv.print{
-        "end",
-        "End the current bisect session. A summary of the bisect results will be printed, and your addons will be restored to their original state.",
-        "Once you are ready, use /bisect reset to reload your UI and return to your normal addons.",
       }
     elseif cmd == "reset" then
       bisect.priv.print{
