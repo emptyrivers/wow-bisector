@@ -179,6 +179,13 @@ do --cli command functions
           bisect.priv.print{
             string.format("Setting %q as enabled", label)
           }
+          bisect.sv.lastHintSet = bisect.sv.lastHintSet or {checked = false, set = {
+            [label] = true
+          }}
+          if not bisect.sv.lastHintSet.set[label] then
+            bisect.sv.lastHintSet.set[label] = true
+            bisect.sv.lastHintSet.checked = false
+          end
         else
           bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
           bisect.sv.expectedSet[label].reason = "-hint"
@@ -195,8 +202,15 @@ do --cli command functions
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-
-    bisect.priv.continue(bisect.priv.verifyCurrentIsLoaded())
+    local ok, reason = bisect.priv.verifyCurrentIsLoaded()
+    if ok and reason ~= "hintSet" then
+      bisect.priv.continue(true)
+    elseif reason == "hintSet" then
+      bisect.sv.lastHintSet.checked = true
+      bisect.priv.continue(false)
+    else
+      bisect.priv.continue(false)
+    end
   end
 
   function bisect.cli.bad()
@@ -205,22 +219,36 @@ do --cli command functions
       return
     end
     local ok, reason = bisect.priv.verifyCurrentIsLoaded()
-    if ok or reason == "subset" then
+    if ok or reason == "subset" or reason == "hintSet" then
       bisect.priv.dprint{"removing unloaded addons from queue"}
+      if reason == "hintSet" then
+        bisect.sv.lastHintSet.checked = true
+      end
       bisect.priv.proveAddonState(function(state)
-        if state.reason == "test" and not state.enabled then
+        if reason == "hintSet" and bisect.sv.lastHintSet then
+          -- if this is a hintset and we get a bad, great news!
+          -- the only enabled addons are the ones in the hintset,
+          -- so every addon in test which isn't in there is immediately ruled out
+          if state.reason == "test" then
+            return false
+          end
+        elseif state.reason == "test" and not state.enabled then
           return false
         end
       end)
       bisect.priv.captureState()
       -- delete all currently not loaded from queue
+      local removedCount = 0
       for i = #bisect.sv.queue, 1, -1 do
-        if not C_AddOns.IsAddOnLoaded(bisect.sv.queue[i]) then
-          bisect.priv.dprint{string.format("removing %q from queue because user said so", bisect.sv.queue[i])}
+        local name = bisect.sv.queue[i]
+        local state = bisect.sv.expectedSet[name]
+        if not C_AddOns.IsAddOnLoaded(bisect.sv.queue[i]) or not state or state.reason ~= "test" then
+          removedCount = removedCount + 1
           table.remove(bisect.sv.queue, i)
         end
       end
-      bisect.priv.continue(not bisect.sv.init)
+      bisect.priv.dprint{string.format("removed %i addons from queue", removedCount)}
+      bisect.priv.continue(not (bisect.sv.init or reason == "hintSet"))
     else
       -- superfluous! we could perhaps do something with incomparable
       -- but i don't feel like writing a set intersect operation
@@ -260,7 +288,7 @@ do --cli command functions
     elseif bisect.sv.mode == "test" then
       bisect.priv.print{
         string.format("Step %i of (%i-%i)", bisect.sv.stepsTaken,
-          bisect.sv.stepsTaken + math.ceil(math.log(#bisect.sv.queue, 2)), -- can be a bit of an overestimate but good enough
+          bisect.sv.stepsTaken + math.ceil(math.log(math.max(#bisect.sv.queue, 1), 2)), -- can be a bit of an overestimate but good enough
           #bisect.sv.queue * 2 + bisect.sv.stepsTaken
         ),
         string.format("Queue length: %i", #bisect.sv.queue),
@@ -365,10 +393,12 @@ do -- meat & potatoes code
     if bisect.sv.mode ~= "test" then return end
     if decrement then
       bisect.sv.index = math.min(bisect.sv.index - bisect.sv.stepSize, #bisect.sv.queue)
-      bisect.priv.dprint{string.format("Decrementing index to %i", bisect.sv.index)}
+      bisect.priv.dprint{string.format("Decremented index to %i", bisect.sv.index)}
     else
       bisect.sv.index = math.min(bisect.sv.index, #bisect.sv.queue)
+      bisect.priv.dprint{string.format("Clamped index to %i", bisect.sv.index)}
     end
+    bisect.priv.dprint{string.format("%i addons left in queue", #bisect.sv.queue)}
     if #bisect.sv.queue == 0 then
       bisect.priv.print{"Bisect complete. Use /bisect print to see the results."}
       return bisect.priv.finish()
@@ -388,8 +418,8 @@ do -- meat & potatoes code
     bisect.priv.dprint{
       string.format("Reloading UI with next set of %i addons to test", bisect.sv.stepSize),
     }
-    bisect.priv.loadNextSet(true)
     bisect.sv.init = nil
+    bisect.priv.loadNextSet(true)
   end
 
   function bisect.priv.finish()
@@ -398,7 +428,7 @@ do -- meat & potatoes code
       return state.reason == "test"
     end)
     bisect.priv.captureState()
-    bisect.priv.printResults(true)
+    bisect.priv.printResults(false)
   end
 
   local codes = {
@@ -411,10 +441,39 @@ do -- meat & potatoes code
     ["extra"] = true,
     ["dependency"] = true,
   }
-  ---@return boolean, nil | "subset" | "superset" | "incomparable"
+  ---@return boolean, nil | "subset" | "superset" | "incomparable" | "hintSet"
   function bisect.priv.verifyCurrentIsLoaded()
-    local code = 0
+    local lastHintSet = bisect.sv.lastHintSet
     local loadedAddons = bisect.priv.addons.loadedAndTestable()
+    if lastHintSet and not lastHintSet.checked then
+      bisect.priv.dprint{"checking if current is hint set"}
+      local isHintSet = true
+      for addonName in pairs(lastHintSet.set) do
+        if not loadedAddons[addonName] then
+          bisect.priv.dprint{string.format("addon %q is a +hint, but isn't loaded", addonName)}
+          isHintSet = false
+          break
+        end
+      end
+      if isHintSet then
+        for addonName in pairs(loadedAddons) do
+          if not lastHintSet.set[addonName] then
+            local state = bisect.sv.expectedSet[addonName]
+            if state and state.reason == "test" then
+              bisect.priv.dprint{string.format("addon %q is loaded, but is in test set", addonName)}
+              isHintSet = false
+              break
+            end
+          end
+        end
+      end
+      if isHintSet then
+        bisect.priv.dprint{"hint set"}
+        return true, "hintSet"
+      end
+    end
+
+    local code = 0
     for name, state in pairs(bisect.sv.expectedSet) do
       if not ignoredReasons[state.reason] and state.enabled and not loadedAddons[name] then
         code = bit.bor(code, 1)
@@ -439,17 +498,20 @@ do -- meat & potatoes code
     return code == 0, codes[code]
   end
 
+  ---@param pred fun(state: AddOnData): boolean?
   function bisect.priv.proveAddonState(pred)
+    local provedCount = 0
     for name, state in pairs(bisect.sv.expectedSet) do
       if state.reason == "test" then
         local result = pred(state)
         if result ~= nil then
           state.reason = "proven"
           state.enabled = result
-          bisect.priv.dprint{string.format("proving %q as %s", name, state.enabled and "enabled" or "disabled")}
+          provedCount = provedCount + 1
         end
       end
     end
+    bisect.priv.dprint{string.format("proved %i addons", provedCount)}
   end
 
   function bisect.priv.captureLibraryState()
@@ -691,6 +753,8 @@ do -- meat & potatoes code
     -- Since we call C_UI.Reload() in here,
     -- it's the perfect opportunity to capture the state of addons
     -- without worrying about user shenanigans
+    local mode = bisect.sv.lastHintSet and not bisect.sv.lastHintSet.checked and "hintSet" or "test"
+
     local expected = bisect.sv.expectedSet
     ---@type table<addonName, AddOnData>
     local nextExpect = {}
@@ -701,11 +765,8 @@ do -- meat & potatoes code
         nextExpect[name] = state
         nextExpect[name].reason = "auto"
         nextExpect[name].enabled = autoHints[name]
-        if autoHints[name] then
-          C_AddOns.EnableAddOn(name)
-        else
-          C_AddOns.DisableAddOn(name)
-        end
+        nextExpect[name].loaded = autoHints[name]
+        C_AddOns.EnableAddOn(name)
       elseif not expected[name] or expected[name].reason == "extra" then
         -- addon was added after bisect started,
         -- so we just hope the user knows what they're doing...
@@ -730,6 +791,7 @@ do -- meat & potatoes code
         end
         if nextExpect[name].reason == "test" then
           nextExpect[name].enabled = false
+          nextExpect[name].loaded = false
           C_AddOns.DisableAddOn(name)
           if not inQueue then
             bisect.priv.dprint{string.format("adding %q to queue because dependency bullshit", name)}
@@ -742,40 +804,53 @@ do -- meat & potatoes code
       elseif expected[name].reason == "proven" then
         nextExpect[name] = state
         nextExpect[name].reason = "proven"
-        nextExpect[name].enabled = false
-        C_AddOns.DisableAddOn(name)
+        nextExpect[name].enabled = expected[name].enabled
+        nextExpect[name].loaded = expected[name].enabled
+        if expected[name].enabled then
+          C_AddOns.EnableAddOn(name)
+        else
+          C_AddOns.DisableAddOn(name)
+        end
       elseif expected[name].reason == "+hint" then
         nextExpect[name] = state
         nextExpect[name].reason = "+hint"
         nextExpect[name].enabled = true
+        nextExpect[name].loaded = true
         C_AddOns.EnableAddOn(name)
       elseif expected[name].reason == "-hint" then
         nextExpect[name] = state
         nextExpect[name].reason = "-hint"
         nextExpect[name].enabled = false
+        nextExpect[name].loaded = false
         C_AddOns.DisableAddOn(name)
       else -- should only be "test" addons which don't have weird dependency bullshit
         nextExpect[name] = state
         nextExpect[name].reason = "test"
         nextExpect[name].enabled = false
+        nextExpect[name].loaded = false
         C_AddOns.DisableAddOn(name)
       end
     end
-    for i = #bisect.sv.queue, 1, -1 do
-      if not nextExpect[bisect.sv.queue[i]] or nextExpect[bisect.sv.queue[i]].reason ~= "test" then
-        -- something in the queue that isn't under test, or was removed...
-        -- we'll just ignore it and hope for the best...
-        -- thankfully the worst that happens is we retest some addons in sets that we didn't exactly plan on
-        bisect.priv.dprint{string.format("removing %q from queue because unexpected", bisect.sv.queue[i])}
-        table.remove(bisect.sv.queue, i)
-      end
-    end
     bisect.sv.expectedSet = nextExpect
-    for i = 1, #bisect.sv.queue do
-      if i > bisect.sv.index or i <= bisect.sv.index - bisect.sv.stepSize then
-        nextExpect[bisect.sv.queue[i]].enabled = true
-        C_AddOns.EnableAddOn(bisect.sv.queue[i])
+    if mode == "test" then
+      bisect.priv.dprint{"Enabling test set"}
+      for i = #bisect.sv.queue, 1, -1 do
+        if not nextExpect[bisect.sv.queue[i]] or nextExpect[bisect.sv.queue[i]].reason ~= "test" then
+          -- something in the queue that isn't under test, or was removed...
+          -- we'll just ignore it and hope for the best...
+          bisect.priv.dprint{string.format("removing %q from queue because unexpected", bisect.sv.queue[i])}
+          table.remove(bisect.sv.queue, i)
+        end
       end
+      for i = 1, #bisect.sv.queue do
+        if i > bisect.sv.index or i <= bisect.sv.index - bisect.sv.stepSize then
+          nextExpect[bisect.sv.queue[i]].enabled = true
+          nextExpect[bisect.sv.queue[i]].loaded = true
+          C_AddOns.EnableAddOn(bisect.sv.queue[i])
+        end
+      end
+    elseif mode == "hintSet" then
+      bisect.priv.dprint{"Skipping test set because hints haven't been tested yet"}
     end
     bisect.sv.stepsTaken = bisect.sv.stepsTaken + 1
     if reload then C_UI.Reload() end

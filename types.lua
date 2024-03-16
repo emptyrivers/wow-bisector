@@ -55,3 +55,4 @@
 ---@field stepsTaken number
 ---@field maxSteps number
 ---@field minSteps number
+---@field lastHintSet? {checked: boolean, set: table<addonName, true>}
