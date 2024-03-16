@@ -142,56 +142,56 @@ do --cli command functions
       local sign, label = hint:match("([+-?!]?)(.*)")
       if not bisect.priv.hintMakesSense(sign, label) then
         bisect.priv.print{"Invalid hint", hint}
-        return
-      end
-      if sign == "!" or sign == "?" then
-        local inQueue = false
-        for i = #bisect.sv.queue, 1, -1 do
-          if bisect.sv.queue[i] == label then
-            inQueue = true
-            break
-          end
-        end
-        if not inQueue then
-          table.insert(bisect.sv.queue, label)
-        end
-        bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
-        bisect.sv.expectedSet[label].reason = sign == "?" and "test" or "extra"
-        if sign == "?" then
-          bisect.priv.print{
-            string.format("Adding %q to test queue", label)
-          }
-        else
-          bisect.priv.print{
-            string.format("Ignoring %q", label)
-          }
-        end
       else
-        for i = #bisect.sv.queue, 1, -1 do
-          if bisect.sv.queue[i] == label then
-            table.remove(bisect.sv.queue, i)
-            break
+        if sign == "!" or sign == "?" then
+          local inQueue = false
+          for i = #bisect.sv.queue, 1, -1 do
+            if bisect.sv.queue[i] == label then
+              inQueue = true
+              break
+            end
           end
-        end
-        if sign == "+" then
+          if not inQueue then
+            table.insert(bisect.sv.queue, label)
+          end
           bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
-          bisect.sv.expectedSet[label].reason = "+hint"
-          bisect.priv.print{
-            string.format("Setting %q as enabled", label)
-          }
-          bisect.sv.lastHintSet = bisect.sv.lastHintSet or {checked = false, set = {
-            [label] = true
-          }}
-          if not bisect.sv.lastHintSet.set[label] then
-            bisect.sv.lastHintSet.set[label] = true
-            bisect.sv.lastHintSet.checked = false
+          bisect.sv.expectedSet[label].reason = sign == "?" and "test" or "extra"
+          if sign == "?" then
+            bisect.priv.print{
+              string.format("Adding %q to test queue", label)
+            }
+          else
+            bisect.priv.print{
+              string.format("Ignoring %q", label)
+            }
           end
         else
-          bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
-          bisect.sv.expectedSet[label].reason = "-hint"
-          bisect.priv.print{
-            string.format("Setting %q as disabled", label)
-          }
+          for i = #bisect.sv.queue, 1, -1 do
+            if bisect.sv.queue[i] == label then
+              table.remove(bisect.sv.queue, i)
+              break
+            end
+          end
+          if sign == "+" then
+            bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
+            bisect.sv.expectedSet[label].reason = "+hint"
+            bisect.priv.print{
+              string.format("Setting %q as enabled", label)
+            }
+            bisect.sv.lastHintSet = bisect.sv.lastHintSet or {checked = false, set = {
+              [label] = true
+            }}
+            if not bisect.sv.lastHintSet.set[label] then
+              bisect.sv.lastHintSet.set[label] = true
+              bisect.sv.lastHintSet.checked = false
+            end
+          else
+            bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
+            bisect.sv.expectedSet[label].reason = "-hint"
+            bisect.priv.print{
+              string.format("Setting %q as disabled", label)
+            }
+          end
         end
       end
     end
