@@ -261,7 +261,7 @@ do --cli command functions
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    bisect.priv.continue()
+    bisect.priv.continue(false)
   end
 
   function bisect.cli.reload()
@@ -388,7 +388,7 @@ do -- meat & potatoes code
     end
   end
 
-  ---@param decrement? boolean
+  ---@param decrement boolean
   function bisect.priv.continue(decrement)
     if bisect.sv.mode ~= "test" then return end
     if decrement then
@@ -408,13 +408,17 @@ do -- meat & potatoes code
         bisect.priv.print{"Bisect complete. Use /bisect print to see the results."}
         return bisect.priv.finish()
       end
-      bisect.sv.stepSize = math.ceil(bisect.sv.stepSize / 2)
       bisect.sv.index = #bisect.sv.queue
-      while bisect.sv.index - bisect.sv.stepSize < 0 and bisect.sv.stepSize > 1 do
-        bisect.sv.stepSize = math.ceil(bisect.sv.stepSize / 2)
-      end
-      bisect.priv.dprint{string.format("Reseting index & stepSize to %i, %i", #bisect.sv.queue, bisect.sv.stepSize)}
     end
+    -- if we disable *all* addons under test, we're likey to repeat tests
+    -- so, only do that if stepSize is 1
+    while bisect.sv.stepSize > 1
+      and bisect.sv.index <= bisect.sv.stepSize
+      and bisect.sv.index == #bisect.sv.queue
+    do
+      bisect.sv.stepSize = math.ceil(bisect.sv.stepSize / 2)
+    end
+    bisect.priv.dprint{string.format("index, stepSize for next set are %i, %i", #bisect.sv.queue, bisect.sv.stepSize)}
     bisect.priv.dprint{
       string.format("Reloading UI with next set of %i addons to test", bisect.sv.stepSize),
     }
