@@ -2,6 +2,68 @@
 
 Bisector is a small commandline-only addon designed to help you narrow down which addon (or, which combination of addons) is causing problems for you.
 
+## Quick Start
+
+If you were directed here by an addon author in a ticket you opened, then follow these instructions:
+
+### 0. Install Bisector
+
+We're available for download at your favorite addon distributor, so long as that's [Curseforge](https://www.curseforge.com/wow/addons/bisector) or [Wago Addons](https://addons.wago.io/addons/wow-bisector).
+
+### 1. Initialize the session
+
+```text
+/bisect start
+```
+
+### 2. Add any hints the author asked for, if any
+
+For example, if a WeakAuras maintainer asked you to give the hint `+WeakAuras !WeakAurasCompanion` to Bisector, you would use this command:
+
+```text
+/bisect hint +WeakAuras !WeakAurasCompanion
+```
+
+### 3. Tell Bisector if you can reproduce the problem
+
+If you can't reproduce the problem:
+
+```text
+/bisect good
+```
+
+If you can:
+
+```text
+/bisect bad
+```
+
+Bisector should reload your UI each time you use either command, each time loading a different set of addons for you to test.
+
+### 3a. Repeat step 3 until Bisector says it's done
+
+You'll know it's done when a message appears in your chat frame that looks like this:
+
+```text
+Bisect complete. Use /bisect print to see the results.
+```
+
+### 4. Copy the report and paste it into your ticket
+
+A window with the title "Bisector Results" should be visible. If not, then use:
+
+```text
+/bisect print
+```
+
+### 5. Go back to playing the game :)
+
+This command will restore your addons to the way they were before you started the bisect session:
+
+```text
+/bisect reset
+```
+
 ## Usage
 
 Nearly all of your interaction with Bisector is done through the `/bisect` slash command. The following commans are supported:
