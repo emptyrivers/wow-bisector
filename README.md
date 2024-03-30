@@ -12,16 +12,10 @@ We're available for download at your favorite addon distributor, so long as that
 
 ### 1. Initialize the session
 
-```text
-/bisect start
-```
-
-### 2. Add any hints the author asked for, if any
-
-For example, if a WeakAuras maintainer asked you to give the hint `+WeakAuras !WeakAurasCompanion` to Bisector, you would use this command:
+Use the command `/bisect start`. Your UI should reload immediately. If an author gave you a hint string to give to Bisector (e.g. `+WeakAuras !WeakAurasCompanion`), include it in `/bisect start` like so:
 
 ```text
-/bisect hint +WeakAuras !WeakAurasCompanion
+/bisect start +WeakAuras !WeakAurasCompanion
 ```
 
 ### 3. Tell Bisector if you can reproduce the problem
