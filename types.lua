@@ -7,9 +7,23 @@
 ---@field test table<string, function>
 ---@field frame any
 
+---@class BisectApiOptions
+---@field reload? boolean
+---@field hints? BisectHint[]
 
----@class BisectCommands
----@field reload function
+---@alias hint
+---| "enable"
+---| "+"
+---| "disable"
+---| "-"
+---| "ignore"
+---| "!"
+---| "test"
+---| "?"
+
+---@class BisectHint
+---@field addon addonName
+---@field hint hint
 
 ---@class addonName : string
 

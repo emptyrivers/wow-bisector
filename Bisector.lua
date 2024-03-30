@@ -120,15 +120,16 @@ do --cli command functions
     end
   end
 
-  function bisect.cli.start()
+  function bisect.cli.start(...)
     if bisect.sv.mode ~= nil then
       bisect.priv.print{"Can't start, already bisecting. Use /bisect reset to end this session & return to your normal addons, or /bisect good/bad to continue bisecting."}
       return
     end
     bisect.priv.startBisecting()
-    bisect.priv.print{
-      "Bisecting started. Use /bisect bad/continue to reload the ui with the next set to test.",
-    }
+    if select("#", ...) > 0 then
+      bisect.priv.applyHints(bisect.priv.parseHints{...}, true)
+    end
+    bisect.priv.loadNextSet(true)
   end
 
   ---@param ... string[]
@@ -137,63 +138,8 @@ do --cli command functions
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    for i = 1, select("#", ...) do
-      local hint = select(i, ...)
-      local sign, label = hint:match("([+-?!]?)(.*)")
-      if not bisect.priv.hintMakesSense(sign, label) then
-        bisect.priv.print{"Invalid hint", hint}
-      else
-        if sign == "!" or sign == "?" then
-          local inQueue = false
-          for i = #bisect.sv.queue, 1, -1 do
-            if bisect.sv.queue[i] == label then
-              inQueue = true
-              break
-            end
-          end
-          if not inQueue then
-            table.insert(bisect.sv.queue, label)
-          end
-          bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
-          bisect.sv.expectedSet[label].reason = sign == "?" and "test" or "extra"
-          if sign == "?" then
-            bisect.priv.print{
-              string.format("Adding %q to test queue", label)
-            }
-          else
-            bisect.priv.print{
-              string.format("Ignoring %q", label)
-            }
-          end
-        else
-          for i = #bisect.sv.queue, 1, -1 do
-            if bisect.sv.queue[i] == label then
-              table.remove(bisect.sv.queue, i)
-              break
-            end
-          end
-          if sign == "+" then
-            bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
-            bisect.sv.expectedSet[label].reason = "+hint"
-            bisect.priv.print{
-              string.format("Setting %q as enabled", label)
-            }
-            bisect.sv.lastHintSet = bisect.sv.lastHintSet or {checked = false, set = {
-              [label] = true
-            }}
-            if not bisect.sv.lastHintSet.set[label] then
-              bisect.sv.lastHintSet.set[label] = true
-              bisect.sv.lastHintSet.checked = false
-            end
-          else
-            bisect.sv.expectedSet[label] = bisect.priv.addonData(label)
-            bisect.sv.expectedSet[label].reason = "-hint"
-            bisect.priv.print{
-              string.format("Setting %q as disabled", label)
-            }
-          end
-        end
-      end
+    if bisect.priv.applyHints(bisect.priv.parseHints{...}) then
+      bisect.priv.loadNextSet(true)
     end
   end
 
@@ -288,7 +234,7 @@ do --cli command functions
     elseif bisect.sv.mode == "test" then
       bisect.priv.print{
         string.format("Step %i of (%i-%i)", bisect.sv.stepsTaken,
-          bisect.sv.stepsTaken + math.ceil(math.log(math.max(#bisect.sv.queue, 1), 2)), -- can be a bit of an overestimate but good enough
+          bisect.sv.stepsTaken + math.ceil(math.log(math.max(#bisect.sv.queue, 1))/ math.log(2)), -- can be a bit of an overestimate but good enough
           #bisect.sv.queue * 2 + bisect.sv.stepsTaken
         ),
         string.format("Queue length: %i", #bisect.sv.queue),
@@ -329,6 +275,102 @@ do --cli command functions
 
 end
 
+do -- addon api
+  ---@class BisectAPI
+  local api = {}
+  _G.Bisector = api
+
+  ---@type BisectApiOptions
+  local defaultOps = {
+    reload = true,
+    autoPrint = true,
+  }
+
+  ---@param opts BisectApiOptions?
+  function api.Start(opts)
+    local opts = CreateFromMixins(defaultOps, opts or {})
+    if bisect.sv.mode ~= nil then
+      return false, "already bisecting"
+    end
+    bisect.priv.startBisecting()
+    if opts then
+      if opts.hints then
+        bisect.priv.applyHints(opts.hints)
+      end
+    end
+    if opts.reload then
+      bisect.priv.loadNextSet(true)
+    end
+  end
+
+  function api.Abort()
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    end
+    bisect.priv.loadSet("init", false)
+    for k, v in pairs(bisect.sv) do
+      bisect.sv[k] = nil
+    end
+    C_UI.Reload()
+  end
+
+  function api.Continue()
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    elseif bisect.sv.mode == "done" then
+      return false, "bisect complete"
+    end
+    bisect.priv.continue(false)
+  end
+
+  function api.Good()
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    elseif bisect.sv.mode == "done" then
+      return false, "bisect complete"
+    end
+    bisect.cli.good()
+  end
+
+  function api.Bad()
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    elseif bisect.sv.mode == "done" then
+      return false, "bisect complete"
+    end
+    bisect.cli.bad()
+  end
+
+  ---@param hints BisectHint[]
+  function api.Hint(hints)
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    end
+    bisect.priv.applyHints(hints)
+    bisect.priv.loadNextSet(true)
+  end
+
+  function api.Status()
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    end
+    return true, {
+      mode = bisect.sv.mode,
+      step = bisect.sv.stepsTaken,
+      minSteps = bisect.sv.minSteps,
+      maxSteps = bisect.sv.maxSteps,
+      queueLength = #bisect.sv.queue,
+    }
+  end
+
+  function api.Print()
+    if bisect.sv.mode == nil then
+      return false, "not bisecting"
+    end
+    return true, bisect.priv.resultsToString(bisect.sv.mode == "test")
+  end
+end
+
 do -- meat & potatoes code
 
   ---@class Plumbing
@@ -361,7 +403,118 @@ do -- meat & potatoes code
     bisect.sv.index = #bisect.sv.queue
     bisect.sv.stepsTaken = 0
     bisect.sv.maxSteps = 2 * #bisect.sv.queue
-    bisect.sv.minSteps = math.ceil(math.log(#bisect.sv.queue, 2))
+    bisect.sv.minSteps = math.ceil(math.log(#bisect.sv.queue) / math.log(2))
+  end
+
+  --- parse hint strings. 1st return is parsed hints, 2nd is hint strings that are unusuable (& why)
+  ---@param hints string[]
+  ---@return BisectHint[]
+  ---@return {hint: string, reason: string}?
+  function bisect.priv.parseHints(hints)
+    ---@type BisectHint[]
+    local parsed = {}
+    local bads = {}
+    for _, hint in ipairs(hints) do
+      local sign, label = hint:match("([+-?!]?)(.*)")
+      local ok, reason = bisect.priv.hintMakesSense(sign, label)
+      if not ok then
+        table.insert(bads, {
+          hint = hint,
+          reason = reason
+        })
+      else
+        table.insert(parsed, {
+          addon = label,
+          hint = sign
+        })
+      end
+    end
+    return parsed, #bads > 0 and bads or nil
+  end
+
+
+  local actions = {
+    ["enable"] = "+",
+    ["+"] = "+",
+    ["disable"] = "-",
+    ["-"] = "-",
+    ["ignore"] = "!",
+    ["!"] = "!",
+    ["test"] = "?",
+    ["?"] = "?",
+  }
+
+  ---@param hints BisectHint[]
+  ---@param skipPrints boolean?
+  ---@return boolean true if hintset needs checking again
+  function bisect.priv.applyHints(hints, skipPrints)
+    local checkHintSet = false
+    for _, hint in ipairs(hints) do
+      local action = actions[hint.hint]
+      if action == "!" or action == "?" then
+        local inQueue = false
+        for i = #bisect.sv.queue, 1, -1 do
+          if bisect.sv.queue[i] == hint.addon then
+            inQueue = true
+            break
+          end
+        end
+        if not inQueue then
+          table.insert(bisect.sv.queue, hint.addon)
+        end
+        bisect.sv.expectedSet[hint.addon] = bisect.priv.addonData(hint.addon)
+        bisect.sv.expectedSet[hint.addon].reason = action == "?" and "test" or "extra"
+        if not skipPrints then
+          if action == "?" then
+            bisect.priv.print{
+              string.format("Adding %q to test queue", hint.addon)
+            }
+          else
+            bisect.priv.print{
+              string.format("Ignoring %q", hint.addon)
+            }
+          end
+        end
+      else
+        for i = #bisect.sv.queue, 1, -1 do
+          if bisect.sv.queue[i] == hint.addon then
+            table.remove(bisect.sv.queue, i)
+            break
+          end
+        end
+        if action == "+" then
+          bisect.sv.expectedSet[hint.addon] = bisect.priv.addonData(hint.addon)
+          bisect.sv.expectedSet[hint.addon].reason = "+hint"
+          if not skipPrints then
+            bisect.priv.print{
+              string.format("Setting %q as enabled", hint.addon)
+            }
+          end
+          if not bisect.sv.lastHintSet
+            or not bisect.sv.lastHintSet.checked
+            or not bisect.sv.lastHintSet.set[hint.addon]
+          then
+            checkHintSet = true
+          end
+          bisect.sv.lastHintSet = bisect.sv.lastHintSet or {checked = false, set = {
+            [hint.addon] = true
+          }}
+          if not bisect.sv.lastHintSet.set[hint.addon] then
+            bisect.sv.lastHintSet.set[hint.addon] = true
+            bisect.sv.lastHintSet.checked = false
+          end
+        else
+          bisect.sv.expectedSet[hint.addon] = bisect.priv.addonData(hint.addon)
+          bisect.sv.expectedSet[hint.addon].reason = "-hint"
+          if not skipPrints then
+            bisect.priv.print{
+              string.format("Setting %q as disabled", hint.addon)
+            }
+          end
+        end
+      end
+    end
+    return checkHintSet
   end
 
   ---@param msgs string[]
@@ -400,12 +553,10 @@ do -- meat & potatoes code
     end
     bisect.priv.dprint{string.format("%i addons left in queue", #bisect.sv.queue)}
     if #bisect.sv.queue == 0 then
-      bisect.priv.print{"Bisect complete. Use /bisect print to see the results."}
       return bisect.priv.finish()
     end
     if bisect.sv.index <= 0 then
       if bisect.sv.stepSize == 1 then
-        bisect.priv.print{"Bisect complete. Use /bisect print to see the results."}
         return bisect.priv.finish()
       end
       bisect.sv.index = #bisect.sv.queue
@@ -433,6 +584,10 @@ do -- meat & potatoes code
     end)
     bisect.priv.captureState()
     bisect.priv.printResults(false)
+    bisect.priv.print{
+      "Bisect complete. Use /bisect print to see the results.",
+      "Use /bisect reset to return to your normal addon set."
+    }
   end
 
   local codes = {
@@ -592,8 +747,7 @@ do -- meat & potatoes code
     bisect.priv.print{table.concat(rope, "")}
   end
 
-  ---@param incomplete boolean
-  function bisect.priv.printResults(incomplete)
+  function bisect.priv.resultsToString(incomplete)
 
     local toPrint = {}
     local dependents = {}
@@ -718,9 +872,15 @@ do -- meat & potatoes code
     for lib, version in pairs(libraries) do
       table.insert(rope, string.format("%s @ %s", lib, version))
     end
+    return table.concat(rope, "\n")
+  end
+
+  ---@param incomplete boolean
+  function bisect.priv.printResults(incomplete)
+    local results = bisect.priv.resultsToString(incomplete)
     bisect.priv.ensureResultsFrame()
     bisect.frame:Show()
-    bisect.frame:SetText(table.concat(rope, "\n"))
+    bisect.frame:SetText(results)
   end
 
   ---@param to "init" | "bad" | "next"
@@ -878,30 +1038,35 @@ do -- meat & potatoes code
 
   ---@param sign "+" | "-" | "?" wtb `keyof` in lsp...
   ---@param addon addonName
+  ---@return boolean
+  ---@return string?
   function bisect.priv.hintMakesSense(sign, addon)
     if not signs[sign] then
       bisect.priv.dprint{string.format("Invalid sign %q", sign)}
-      return false
+      return false, "invalid sign"
     end
     if not addon or addon == "" then
       bisect.priv.dprint{"No addon specified"}
-      return false
+      return false, "no addon"
     end
-    local exists = C_AddOns.DoesAddOnExist(addon)
-    if not exists then
+    local addonData = bisect.priv.addonData(addon)
+    if not addonData then
       bisect.priv.dprint{string.format("Addon %q does not exist", addon)}
-      return false
+      return false, "addon does not exist"
     end
-    local dependencies = { C_AddOns.GetAddOnDependencies(addon) }
-    local loadable, reason = C_AddOns.IsAddOnLoadable(addon)
     -- since we only control the enable state of addons with 0 dependencies, no need to check for DEP_DISABLED & friends
-    if #dependencies > 0 then
+    if #addonData.dependencies > 0 then
       bisect.priv.dprint{string.format("Addon %q has dependencies", addon)}
-      return false
+      return false, "dependencies"
     end
+    local loadable, reason = C_AddOns.IsAddOnLoadable(addon)
     if not loadable and not canWorkWith[reason] then
       bisect.priv.dprint{string.format("Addon %q is not loadable", addon)}
-      return false
+      return false, "not loadable"
+    end
+    if addonData.security ~= "INSECURE" then
+      bisect.priv.dprint{string.format("Addon %q is not insecure", addon)}
+      return false, "blizzard addon"
     end
     return true
   end
@@ -991,6 +1156,24 @@ do -- meat & potatoes code
       end
     end
     return queue
+  end
+
+  function bisect.priv.welcome()
+    if bisect.sv.mode == "test" then
+      bisect.priv.print{
+        "Bisector is currently in test mode.",
+        ("There are %i addons left to test.").format(#bisect.sv.queue),
+        "Use /bisect reset to abort & return to your normal addon set.",
+        "Use /bisect bad if you can still reproduce your issue with these addons.",
+        "Use /bisect good if you can no longer reproduce your issue.",
+      }
+    elseif bisect.sv.mode == "done" then
+      bisect.priv.print{
+        "Bisector has completed its tests.",
+        "Use /bisect print to see & copy the results.",
+        "Use /bisect reset to return to your normal addon set."
+      }
+    end
   end
 end
 
@@ -1084,6 +1267,11 @@ do -- initialize the addon
     if bisect.sv.mode ~= nil then
       bisect.priv.ensureResultsFrame()
     end
+    -- to hopefully avoid our welcome message being lost in the soup of other addon messages
+    -- we can delay for a bit (most other addons do their prints on ADDON_LOADED or PLAYER_LOGIN)
+    -- ! If you, dear reader, are thinking of copying this idea for your addon, please don't :(
+    -- ! I'd rather not accidentally have started an arms race, thanks!
+    C_Timer.After(1, bisect.priv.welcome)
   end
 
   EventUtil.ContinueOnAddOnLoaded(bisectName, bisect.priv.init)
