@@ -5,7 +5,7 @@
 ## Version: 1.1.2
 ## Notes: Find that broken addon!
 ## SavedVariables: BisectorSaved
-## OptionalDependencies: DevTool
+## OptionalDeps: DevTool
 ## X-Curse-Project-ID: 976194
 ## X-Wago-ID: v63o8o6b
 

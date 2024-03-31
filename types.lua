@@ -1,6 +1,7 @@
 ---@meta
 
 ---@class Bisector
+---@field version string
 ---@field sv SavedState
 ---@field cli BisectCommands
 ---@field priv Plumbing
@@ -10,6 +11,7 @@
 ---@class BisectApiOptions
 ---@field reload? boolean
 ---@field hints? BisectHint[]
+---@field autoPrint? boolean
 
 ---@alias hint
 ---| "enable"
@@ -56,7 +58,10 @@
 ---@field libraries table<addonName, string>
 
 ---@class SavedState
----@field mode? "test" | "done"
+---@field mode? "test" | "done" | "autoPrint"
+---@field origin "cli" | "api"
+---@field autoPrint? boolean
+---@field lastTest "good" | "bad" | "init"
 ---@field init? true
 ---@field beforeBisect table<addonName, AddOnData>
 ---@field last results

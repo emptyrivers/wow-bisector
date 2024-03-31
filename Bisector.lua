@@ -3,9 +3,13 @@
 ---@type addonName, Bisector
 local bisectName, bisect = ...
 
+bisect.version = "@project-version@"
+
+
 local debug = false
 --@debug@
 debug = true
+bisect.version = "**working copy**"
 --@end-debug@
 
 
@@ -125,7 +129,7 @@ do --cli command functions
       bisect.priv.print{"Can't start, already bisecting. Use /bisect reset to end this session & return to your normal addons, or /bisect good/bad to continue bisecting."}
       return
     end
-    bisect.priv.startBisecting()
+    bisect.priv.startBisecting("cli")
     if select("#", ...) > 0 then
       bisect.priv.applyHints(bisect.priv.parseHints{...}, true)
     end
@@ -149,11 +153,17 @@ do --cli command functions
       return
     end
     local ok, reason = bisect.priv.verifyCurrentIsLoaded()
+    if ok then
+      bisect.sv.lastTest = "good"
+    end
     if ok and reason ~= "hintSet" then
       bisect.priv.continue(true)
     elseif reason == "hintSet" then
       bisect.sv.lastHintSet.checked = true
-      bisect.priv.continue(false)
+      bisect.sv.mode = "autoPrint"
+      if bisect.sv.autoPrint then
+        bisect.priv.printResults()
+      end
     else
       bisect.priv.continue(false)
     end
@@ -166,6 +176,7 @@ do --cli command functions
     end
     local ok, reason = bisect.priv.verifyCurrentIsLoaded()
     if ok or reason == "subset" or reason == "hintSet" then
+      bisect.sv.lastTest = "bad"
       bisect.priv.dprint{"removing unloaded addons from queue"}
       if reason == "hintSet" then
         bisect.sv.lastHintSet.checked = true
@@ -194,7 +205,12 @@ do --cli command functions
         end
       end
       bisect.priv.dprint{string.format("removed %i addons from queue", removedCount)}
-      bisect.priv.continue(not (bisect.sv.init or reason == "hintSet"))
+      if reason ~= "hintSet" then
+        bisect.priv.continue(not (bisect.sv.init))
+      else
+        -- if hintset, then none of test addons are active
+        bisect.priv.finish()
+      end
     else
       -- superfluous! we could perhaps do something with incomparable
       -- but i don't feel like writing a set intersect operation
@@ -203,7 +219,7 @@ do --cli command functions
   end
 
   function bisect.cli.continue()
-    if bisect.sv.mode ~= "test" then
+    if bisect.sv.mode ~= "test" and bisect.sv.mode ~= "autoPrint" then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
@@ -231,7 +247,7 @@ do --cli command functions
     if bisect.sv.mode == nil then
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
-    elseif bisect.sv.mode == "test" then
+    elseif bisect.sv.mode ~= "done" then
       bisect.priv.print{
         string.format("Step %i of (%i-%i)", bisect.sv.stepsTaken,
           bisect.sv.stepsTaken + math.ceil(math.log(math.max(#bisect.sv.queue, 1))/ math.log(2)), -- can be a bit of an overestimate but good enough
@@ -259,7 +275,7 @@ do --cli command functions
       bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
       return
     end
-    bisect.priv.printResults(bisect.sv.mode == "test")
+    bisect.priv.printResults()
   end
 
   function bisect.cli.debug()
@@ -292,7 +308,7 @@ do -- addon api
     if bisect.sv.mode ~= nil then
       return false, "already bisecting"
     end
-    bisect.priv.startBisecting()
+    bisect.priv.startBisecting("api")
     if opts then
       if opts.hints then
         bisect.priv.applyHints(opts.hints)
@@ -367,7 +383,7 @@ do -- addon api
     if bisect.sv.mode == nil then
       return false, "not bisecting"
     end
-    return true, bisect.priv.resultsToString(bisect.sv.mode == "test")
+    return true, bisect.priv.resultsToString()
   end
 end
 
@@ -388,12 +404,20 @@ do -- meat & potatoes code
     ["BetterAddonList"] = true, -- TODO: drop this one, it's purely to make development of bisector easier
   }
 
-  function bisect.priv.startBisecting()
-
+  ---@param origin "api" | "cli"
+  ---@param autoPrint boolean?
+  function bisect.priv.startBisecting(origin, autoPrint)
     for k in pairs(bisect.sv) do
       bisect.sv[k] = nil
     end
     bisect.sv.mode = "test"
+    bisect.sv.lastTest = "init"
+    bisect.sv.origin = origin
+    if autoPrint ~= nil then
+      bisect.sv.autoPrint = autoPrint
+    else
+      bisect.sv.autoPrint = true
+    end
     bisect.sv.init = true
     bisect.sv.beforeBisect = bisect.priv.addons.all()
     local toTest = bisect.priv.addons.testable()
@@ -543,6 +567,9 @@ do -- meat & potatoes code
 
   ---@param decrement boolean
   function bisect.priv.continue(decrement)
+    if bisect.sv.mode == "autoPrint" then
+      bisect.sv.mode = "test"
+    end
     if bisect.sv.mode ~= "test" then return end
     if decrement then
       bisect.sv.index = math.min(bisect.sv.index - bisect.sv.stepSize, #bisect.sv.queue)
@@ -583,7 +610,7 @@ do -- meat & potatoes code
       return state.reason == "test"
     end)
     bisect.priv.captureState()
-    bisect.priv.printResults(false)
+    bisect.priv.printResults()
     bisect.priv.print{
       "Bisect complete. Use /bisect print to see the results.",
       "Use /bisect reset to return to your normal addon set."
@@ -747,8 +774,7 @@ do -- meat & potatoes code
     bisect.priv.print{table.concat(rope, "")}
   end
 
-  function bisect.priv.resultsToString(incomplete)
-
+  function bisect.priv.resultsToString()
     local toPrint = {}
     local dependents = {}
     local statistics = {
@@ -760,10 +786,11 @@ do -- meat & potatoes code
       minSteps = bisect.sv.minSteps,
       maxSteps = bisect.sv.maxSteps,
     }
-
+    local incomplete = bisect.sv.mode == "test"
+    local autoPrint = bisect.sv.mode == "autoPrint" and bisect.sv.autoPrint
     ---@type results["libraries"]
-    local libraries = incomplete and bisect.priv.captureLibraryState() or bisect.sv.last.libraries
-    local addons = incomplete and bisect.sv.expectedSet or bisect.sv.last.addons
+    local libraries = (incomplete or autoPrint) and bisect.priv.captureLibraryState() or bisect.sv.last.libraries
+    local addons = (incomplete or autoPrint) and bisect.sv.expectedSet or bisect.sv.last.addons
     for name, state in pairs(addons) do
       if state.reason == "test" or state.reason == "init" then
         bisect.priv.dprint{string.format("skipping %q because it's still under test - %s", name, state.reason)}
@@ -787,7 +814,7 @@ do -- meat & potatoes code
           loaded = state.loaded,
           dependents = {},
         }
-        if #state.dependencies == 0 then
+        if #state.dependencies == 0 and (not autoPrint or state.reason ~= "test" or state.loaded) then
           toPrint[name] = dependents[name]
         end
       end
@@ -833,8 +860,12 @@ do -- meat & potatoes code
     local rope = {}
     table.insert(rope, "Bisect results:")
     table.insert(rope, "")
-    table.insert(rope, "report version: 1.0.1")
-    if incomplete or statistics.addonsUnproven > 0 then
+    table.insert(rope, "report version: 2")
+    table.insert(rope, string.format("addon version: %s", bisect.version))
+    table.insert(rope, string.format("mode at print: %s", bisect.sv.mode))
+    table.insert(rope, string.format("bisect origin: %s", bisect.sv.origin))
+    table.insert(rope, string.format("last test result: %s", bisect.sv.lastTest or "init"))
+    if (incomplete or statistics.addonsUnproven > 0) and not bisect.sv.mode == "autoPrint" then
       table.insert(rope, string.format("WARNING: Bisect algorithm is incomplete, %i addons still under test", statistics.addonsUnproven))
     end
     table.insert(rope, string.format("Bisect took %i out of (%i-%i) steps", statistics.stepsTaken, statistics.minSteps, statistics.maxSteps))
@@ -854,6 +885,10 @@ do -- meat & potatoes code
     end
     local addonAlreadyPrinted = {}
     local function printAddOnData(rope, level, data)
+      if addonAlreadyPrinted[data.name] then
+        addDotLine(rope, level, data.title)
+        return
+      end
       addLine(rope, level, data.title, data.version, data.reason, data.loaded)
       addonAlreadyPrinted[data.name] = true
       for i, dep in ipairs(tableToArray(data.dependents, sortFunc)) do
@@ -875,9 +910,8 @@ do -- meat & potatoes code
     return table.concat(rope, "\n")
   end
 
-  ---@param incomplete boolean
-  function bisect.priv.printResults(incomplete)
-    local results = bisect.priv.resultsToString(incomplete)
+  function bisect.priv.printResults()
+    local results = bisect.priv.resultsToString()
     bisect.priv.ensureResultsFrame()
     bisect.frame:Show()
     bisect.frame:SetText(results)
@@ -914,6 +948,7 @@ do -- meat & potatoes code
 
   ---@param reload? boolean
   function bisect.priv.loadNextSet(reload)
+    if bisect.sv.mode ~= "test" then return end
     -- Since we call C_UI.Reload() in here,
     -- it's the perfect opportunity to capture the state of addons
     -- without worrying about user shenanigans
@@ -996,7 +1031,22 @@ do -- meat & potatoes code
       end
     end
     bisect.sv.expectedSet = nextExpect
-    if mode == "test" then
+    if mode == "hintSet" then
+      bisect.priv.dprint{"Skipping test set because hints haven't been tested yet"}
+    elseif bisect.sv.init then
+      bisect.priv.dprint{"Enabling initial addon set"}
+      for i = #bisect.sv.queue, 1, -1 do
+        -- enable every addon on init
+        if not nextExpect[bisect.sv.queue[i]] or nextExpect[bisect.sv.queue[i]].reason ~= "test" then
+          table.remove(bisect.sv.queue, i)
+          bisect.priv.dprint{string.format("removing %q from queue because unexpected", bisect.sv.queue[i])}
+        else
+          nextExpect[bisect.sv.queue[i]].enabled = true
+          nextExpect[bisect.sv.queue[i]].loaded = true
+          C_AddOns.EnableAddOn(bisect.sv.queue[i])
+        end
+      end
+    else
       bisect.priv.dprint{"Enabling test set"}
       for i = #bisect.sv.queue, 1, -1 do
         if not nextExpect[bisect.sv.queue[i]] or nextExpect[bisect.sv.queue[i]].reason ~= "test" then
@@ -1013,8 +1063,6 @@ do -- meat & potatoes code
           C_AddOns.EnableAddOn(bisect.sv.queue[i])
         end
       end
-    elseif mode == "hintSet" then
-      bisect.priv.dprint{"Skipping test set because hints haven't been tested yet"}
     end
     bisect.sv.stepsTaken = bisect.sv.stepsTaken + 1
     if reload then C_UI.Reload() end
@@ -1159,20 +1207,26 @@ do -- meat & potatoes code
   end
 
   function bisect.priv.welcome()
-    if bisect.sv.mode == "test" then
+    if bisect.sv.mode == "test" or bisect.sv.mode == "autoPrint" then
       bisect.priv.print{
         "Bisector is currently in test mode.",
-        ("There are %i addons left to test.").format(#bisect.sv.queue),
+        ("There are %i addons left to test."):format(#bisect.sv.queue),
         "Use /bisect reset to abort & return to your normal addon set.",
         "Use /bisect bad if you can still reproduce your issue with these addons.",
         "Use /bisect good if you can no longer reproduce your issue.",
       }
+      if bisect.sv.mode == "autoPrint" and bisect.sv.autoPrint then
+        bisect.priv.printResults()
+      end
     elseif bisect.sv.mode == "done" then
       bisect.priv.print{
         "Bisector has completed its tests.",
         "Use /bisect print to see & copy the results.",
         "Use /bisect reset to return to your normal addon set."
       }
+      if bisect.sv.autoPrint then
+        bisect.priv.printResults()
+      end
     end
   end
 end

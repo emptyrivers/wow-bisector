@@ -60,6 +60,8 @@ This command will restore your addons to the way they were before you started th
 
 ## Usage
 
+### Commandline
+
 Nearly all of your interaction with Bisector is done through the `/bisect` slash command. The following commans are supported:
 
 - /bisect help
@@ -88,6 +90,10 @@ Nearly all of your interaction with Bisector is done through the `/bisect` slash
 - /bisect reload
   - alias for /reloadui
 
+### API
+
+Bisector provides an API under the global `Bisector` to allow other addons to whitelabel its functionality. This API is currently unstable, and is thus not documented until it is finalized. Inspect the source code to find what API functions are available, and feel free to provide feedback if there are any bugs and/or features you'd like to see added.
+
 ## Hints
 
 If you suspect that a particular addon is not necessary to reproduce your issue, or if you're trying to find which addon is interfering with another known addon, you can provide a hint to Bisector to speed things up. The syntax is as follows:
@@ -108,6 +114,16 @@ The supported hint signs are as follows:
   - marks and addon as testable. Bisector will add it to the list of addons to test enable/disable states. This is useful to 'unset' a hint you previously gave to Bisector.
 
 ## How to Interpret a Bisector Report
+
+### Changes since 1.0.1
+
+- The report number is no longer produced in semver style, but rather as an incrementing integer.
+- Some new lines were added to the Report Summary:
+  - Bisector addon version
+  - Bisector mode @ time of report (possible modes are: "test", "autoPrint", "done")
+- Redundant lines are now more frequently detected in the  addon tree. This should reduce the noise seen in dependency trees of e.g. BigWigs Options which depends on multiple things, that in turn depend on some of BigWigs Options' other dependencies.
+
+### Example Report
 
 Imagine for a moment that there was some obscure interaction between the WeakAuras, BigWigs, and Details! Damage Meter addons. Then, running Bisector to completion would produce a report similar to this:
 
@@ -197,7 +213,7 @@ AceDB-3.0 @ 28
 AceGUI-3.0-DropDown-ItemBase @ 20
 ```
 
-As of report version 1.0.1, there are three parts to the report, in the following order:
+As of report version 2, there are three parts to the report, in the following order:
 
 ### Report Summary
 
@@ -205,6 +221,17 @@ This part begins with the line `Bisector Report:`, and provides the following in
 
 - report version
   - the report version. Refer to this document for instructions on how to interpret a particular report version.
+- addon version
+  - Bisector's project revision string. This is either `**working copy` (if report was generated from a development copy of Bisector), or the version string as produced by git describe (i.e. most recent tag & possibly commit hash).
+- mode at print
+  - The mode that Bisector was in when the report was generated. Can be any of `autoPrint`, `test`, or `done`. You should consider any report with a mode of `test` to be suspect, as it indicates that the user ran `/bisect print` when Bisector was not in a state it considered worth reporting.
+- bisect origin
+  - the method by which Bisector was invoked to begin the bisect session. possible values:
+  - `api` - invoked via whitelabel API
+  - `cli` - invoked via commandline `/bisect start`
+- last test result
+  - one of `good`, `bad`, `init`. On `/bisect start`, this is `init`, otherwise it represents the result of the last test the user responded to.
+  - This is most useful in an autoPrint report: if last test result is `bad`, it indicates that the issue can be reproduced with the addon tree described below. If `good`, then it could not be reproduced with the below addon tree.
 - step count
   - The total # of steps (UI reloads) Bisector took, relative to an estimate of the min & max # of steps Bisector could have taken. Provided mainly for debugging purposes & because it's mildly interesting.\
 - hints taken
