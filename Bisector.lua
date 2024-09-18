@@ -13,25 +13,6 @@ bisect.version = "**working copy**"
 --@end-debug@
 
 
--- polyfills
----@diagnostic disable: deprecated
-local C_AddOns = C_AddOns or {
-  GetNumAddOns = GetNumAddOns,
-  GetAddOnInfo = GetAddOnInfo,
-  IsAddOnLoadOnDemand = IsAddOnLoadOnDemand,
-  IsAddOnLoaded = IsAddOnLoaded,
-  EnableAddOn = EnableAddOn,
-  DisableAddOn = DisableAddOn,
-  GetAddOnDependencies = GetAddOnDependencies,
-  GetAddOnMetadata = GetAddOnMetadata,
-}
-local C_UI = C_UI or {
-  Reload = ReloadUi,
-}
--- not sure why but i was sure this wouldn't work to re-enable deprecations for the rest of the file
----@diagnostic enable: deprecated
-
-
 do -- Register CLI
   SLASH_BISECT1, SLASH_BISECT2 = "/bisect", "/bsct"
   ---@param input string
