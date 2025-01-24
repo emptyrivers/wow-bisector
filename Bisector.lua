@@ -393,7 +393,6 @@ do -- meat & potatoes code
     ["!BugGrabber"] = true,
     ["BugSack"] = true,
     ["DevTool"] = true,
-    ["BetterAddonList"] = true, -- TODO: drop this one, it's purely to make development of bisector easier
   }
 
   ---@param origin "api" | "cli"
