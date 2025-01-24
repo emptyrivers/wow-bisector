@@ -44,7 +44,7 @@ do --cli command functions
         "  /bisect continue - Continue the current bisect session",
         "  /bisect reload - Alias for /reloadui",
         "  /bisect reset - Stop bisecting and restore your addons to their original state",
-        "  /bisect restore init|bad|next - Restore your addons to their original state, or to the last bad set, or the next set to test.",
+        "  /bisect restore init||bad||next - Restore your addons to their original state, or to the last bad set, or the next set to test.",
         "  /bisect status - Show the current bisect session status",
         "  /bisect print - Print the bisect results",
       }
