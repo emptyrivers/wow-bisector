@@ -61,6 +61,7 @@
 ---@field mode? "test" | "done" | "autoPrint"
 ---@field origin "cli" | "api"
 ---@field autoPrint? boolean
+---@field fast boolean
 ---@field lastTest "good" | "bad" | "init"
 ---@field init? true
 ---@field beforeBisect table<addonName, AddOnData>

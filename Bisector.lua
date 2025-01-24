@@ -7,6 +7,7 @@ bisect.version = "@project-version@"
 
 
 local debug = false
+local fast = true
 --@debug@
 debug = true
 bisect.version = "**working copy**"
@@ -114,7 +115,7 @@ do --cli command functions
     if select("#", ...) > 0 then
       bisect.priv.applyHints(bisect.priv.parseHints{...}, true)
     end
-    bisect.priv.loadNextSet(true)
+    bisect.priv.loadNextSet(fast)
   end
 
   ---@param ... string[]
@@ -124,7 +125,7 @@ do --cli command functions
       return
     end
     if bisect.priv.applyHints(bisect.priv.parseHints{...}) then
-      bisect.priv.loadNextSet(true)
+      bisect.priv.loadNextSet(fast)
     end
   end
 
@@ -270,6 +271,16 @@ do --cli command functions
     end
   end
 
+  function bisect.cli.speed(speed)
+    if bisect.sv.mode == nil then
+      bisect.priv.print{"Not bisecting. Use /bisect start to start a new bisect session."}
+      return
+    end
+    fast = speed == "fast"
+    bisect.sv.fast = fast
+    bisect.priv.print{"Fast mode ".. (fast and "enabled" or "disabled")}
+  end
+
 end
 
 do -- addon api
@@ -296,7 +307,7 @@ do -- addon api
       end
     end
     if opts.reload then
-      bisect.priv.loadNextSet(true)
+      bisect.priv.loadNextSet(fast)
     end
   end
 
@@ -344,7 +355,7 @@ do -- addon api
       return false, "not bisecting"
     end
     bisect.priv.applyHints(hints)
-    bisect.priv.loadNextSet(true)
+    bisect.priv.loadNextSet(fast)
   end
 
   function api.Status()
@@ -582,7 +593,7 @@ do -- meat & potatoes code
       string.format("Reloading UI with next set of %i addons to test", bisect.sv.stepSize),
     }
     bisect.sv.init = nil
-    bisect.priv.loadNextSet(true)
+    bisect.priv.loadNextSet(fast)
   end
 
   function bisect.priv.finish()
