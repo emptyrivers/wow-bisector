@@ -11,3 +11,4 @@
 
 Bisector.lua
 ResultsFrame.xml
+ControlPanel.xml

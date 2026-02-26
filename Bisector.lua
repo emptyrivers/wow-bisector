@@ -22,7 +22,7 @@ do -- Register CLI
     if type(bisect.cli[args[1]]) == "function" then
       bisect.cli[args[1]](select(2, unpack(args)))
     else
-      return bisect.cli.help()
+      return bisect.priv.openControlPanel()
     end
   end
 end
@@ -1118,6 +1118,24 @@ do -- meat & potatoes code
     end
   end
 
+  function bisect.priv.ensureControlPanel()
+    if not bisect.panel then
+      bisect.panel = CreateFrame("frame", "BisectorControlPanel", UIParent, "BisectorControlPanelTemplate")
+      bisect.sv.panelData = bisect.sv.panelData or {}
+      bisect.panel:Initialize(bisect.sv.panelData)
+    end
+  end
+
+  function bisect.priv.openControlPanel()
+    bisect.priv.ensureControlPanel()
+    if bisect.panel:IsShown() then
+      bisect.panel:Hide()
+    else
+      bisect.panel:Refresh()
+      bisect.panel:Show()
+    end
+  end
+
   ---@param nameber number | addonName get it? it's either a number or a name!
   ---@return AddOnData?
   function bisect.priv.addonData(nameber)
@@ -1311,6 +1329,8 @@ do -- initialize the addon
     end
     if bisect.sv.mode ~= nil then
       bisect.priv.ensureResultsFrame()
+      bisect.priv.ensureControlPanel()
+      bisect.panel:Show()
     end
     -- to hopefully avoid our welcome message being lost in the soup of other addon messages
     -- we can delay for a bit (most other addons do their prints on ADDON_LOADED or PLAYER_LOGIN)
