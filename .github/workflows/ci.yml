@@ -36,7 +36,7 @@ jobs:
         with:
           args: -celo
 
-      - uses: actions/upload-artifact@v1.0.0
+      - uses: actions/upload-artifact@v4
         with:
           name: Bisector-CI
           path: .release/Bisector
