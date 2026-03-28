@@ -9,7 +9,9 @@
     "CreateScrollBoxLinearView",
     "CreateAnchor",
     "class",
-    "ScrollBoxConstants"
+    "ScrollBoxConstants",
+    "CopyTable",
+    "UIParent"
   ],
   "Lua.runtime.version": "Lua 5.1",
   "Lua.runtime.builtin": {
