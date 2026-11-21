@@ -13,7 +13,6 @@ debug = true
 bisect.version = "**working copy**"
 --@end-debug@
 
-
 do -- Register CLI
   SLASH_BISECT1, SLASH_BISECT2 = "/bisect", "/bsct"
   ---@param input string
@@ -684,6 +683,7 @@ do -- meat & potatoes code
         if result ~= nil then
           state.reason = "proven"
           state.enabled = result
+          state.loaded = result
           provedCount = provedCount + 1
         end
       end
